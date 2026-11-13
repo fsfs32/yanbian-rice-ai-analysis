@@ -7,7 +7,7 @@ import { calcKpi, formatWan } from '../utils/calcKpi';
 import { LABELS, VALUES } from '../utils/mockData';
 
 const SUGGESTIONS = [
-  { icon: LineChart, text: '画出 1994—2016 年产量趋势', desc: '折线图' },
+  { icon: LineChart, text: '画出 2016—2025 年产量趋势', desc: '折线图' },
   { icon: Trophy, text: '产量最高的是哪一年？', desc: '柱状图' },
   { icon: Calculator, text: '平均产量是多少吨？', desc: '关键指标' },
   { icon: Activity, text: '产量波动最大的年份', desc: '波动分析' },
