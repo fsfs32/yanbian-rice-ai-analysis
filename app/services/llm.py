@@ -33,6 +33,8 @@ class LlmClient:
         temperature: float | None = None,
     ) -> dict[str, Any]:
         """发起一次对话补全，返回原始响应体（含 message / tool_calls）。"""
+        if not settings.llm_api_key:
+            raise LlmError("未配置 LLM_API_KEY：请在后端目录的 .env 文件中填写（参考 .env.example）")
         payload: dict[str, Any] = {
             "model": settings.llm_model,
             "messages": messages,

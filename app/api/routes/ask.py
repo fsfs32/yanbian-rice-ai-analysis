@@ -14,6 +14,7 @@ from typing import AsyncIterator
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from ...core.exceptions import AppError
 from ...schemas import AskRequest
 from ...services.agent import AnalysisAgent
 from ...services.data_source import InMemoryRiceDataSource
@@ -49,6 +50,11 @@ async def _stream(request: AskRequest) -> AsyncIterator[str]:
     """生成 SSE 事件流。"""
     try:
         result = await _agent.analyze(request)
+    except AppError as exc:
+        # 业务错误（如未配置 API Key）：把具体原因透传给前端
+        yield f"data: {json.dumps({'delta': exc.message}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+        return
     except Exception:  # noqa: BLE001
         # 流式场景无法再返回错误状态码，降级为一条文本提示
         yield f"data: {json.dumps({'delta': '抱歉，AI 分析暂时不可用，请稍后重试。'}, ensure_ascii=False)}\n\n"
