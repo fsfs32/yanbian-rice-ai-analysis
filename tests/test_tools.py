@@ -14,8 +14,8 @@ def registry() -> ToolRegistry:
 
 
 def test_query_yield_range(registry: ToolRegistry) -> None:
-    result = registry.execute("query_yield", {"start_year": 2000, "end_year": 2001})
-    assert [row["year"] for row in result["rows"]] == [2000, 2001]
+    result = registry.execute("query_yield", {"start_year": 2020, "end_year": 2021})
+    assert [row["year"] for row in result["rows"]] == [2020, 2021]
 
 
 def test_query_yield_empty_range(registry: ToolRegistry) -> None:
@@ -26,7 +26,7 @@ def test_query_yield_empty_range(registry: ToolRegistry) -> None:
 
 def test_query_statistics(registry: ToolRegistry) -> None:
     result = registry.execute("query_statistics", {"field": "yield"})
-    assert result["count"] == 23
+    assert result["count"] == 10
     assert result["min"] < result["max"]
     assert result["trend"] == "上升"
 

@@ -43,8 +43,8 @@ class ToolRegistry:
 
 def _make_query_yield(datasource: DataSource) -> ToolHandler:
     def handler(args: dict[str, Any]) -> dict[str, Any]:
-        start = int(args.get("start_year", 1994))
-        end = int(args.get("end_year", 2016))
+        start = int(args.get("start_year", 2016))
+        end = int(args.get("end_year", 2025))
         return datasource.query_yield(start, end)
 
     return handler
@@ -73,7 +73,7 @@ def build_tool_registry(datasource: DataSource) -> ToolRegistry:
         "query_yield",
         {
             "name": "query_yield",
-            "description": "查询延边州指定年份区间的水稻产量（吨）与销售额（亿元），返回逐年明细。",
+            "description": "查询延边州指定年份区间的稻谷产量（万吨）与产值估算（亿元），返回逐年明细。",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -90,14 +90,14 @@ def build_tool_registry(datasource: DataSource) -> ToolRegistry:
         "query_statistics",
         {
             "name": "query_statistics",
-            "description": "对产量或销售额做描述性统计，返回最小值、最大值、均值与趋势。",
+            "description": "对产量或产值做描述性统计，返回最小值、最大值、均值与趋势。",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "field": {
                         "type": "string",
                         "enum": ["yield", "revenue"],
-                        "description": "统计字段：yield=产量，revenue=销售额",
+                        "description": "统计字段：yield=产量，revenue=产值估算",
                     }
                 },
                 "required": ["field"],

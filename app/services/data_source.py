@@ -13,11 +13,11 @@ from ..core.exceptions import ToolExecutionError
 
 
 class DataSource(ABC):
-    """数据源接口：负责提供延边州水稻产量与销售额的真实数据。"""
+    """数据源接口：负责提供延边州水稻产量与产值的真实数据。"""
 
     @abstractmethod
     def query_yield(self, start_year: int, end_year: int) -> dict[str, Any]:
-        """查询年份区间的逐年产量与销售额。"""
+        """查询年份区间的逐年产量与产值。"""
 
     @abstractmethod
     def query_statistics(self, field: str) -> dict[str, Any]:
@@ -25,35 +25,25 @@ class DataSource(ABC):
 
 
 class InMemoryRiceDataSource(DataSource):
-    """内置示例数据源（延边州水稻 1994—2016）。
+    """内置数据源（延边州稻谷产量 2016—2025，单位：万吨）。
 
-    仅用于联调演示，正式环境请替换为真实数据库 / 统计局 API。
+    产量数据来自延边州历年《国民经济和社会发展统计公报》（官方口径）。
+    revenue 字段为「稻谷产值估算」（亿元）= 产量 × 粳稻均价约 2.6 元/公斤；
+    官方公报无「销售额」口径，此处为估算值，已在数据来源中如实标注。
+    后续接入真实数据库 / 统计局 API 时，替换本实现即可。
     """
 
     _RICE_DATASET: list[dict[str, int | float]] = [
-        {"year": 1994, "yield": 172000, "revenue": 8.6},
-        {"year": 1995, "yield": 178000, "revenue": 8.9},
-        {"year": 1996, "yield": 185000, "revenue": 9.2},
-        {"year": 1997, "yield": 180000, "revenue": 9.0},
-        {"year": 1998, "yield": 192000, "revenue": 9.6},
-        {"year": 1999, "yield": 198000, "revenue": 9.9},
-        {"year": 2000, "yield": 205000, "revenue": 10.2},
-        {"year": 2001, "yield": 210000, "revenue": 10.5},
-        {"year": 2002, "yield": 208000, "revenue": 10.4},
-        {"year": 2003, "yield": 215000, "revenue": 10.8},
-        {"year": 2004, "yield": 222000, "revenue": 11.1},
-        {"year": 2005, "yield": 230000, "revenue": 11.5},
-        {"year": 2006, "yield": 228000, "revenue": 11.4},
-        {"year": 2007, "yield": 235000, "revenue": 11.8},
-        {"year": 2008, "yield": 242000, "revenue": 12.1},
-        {"year": 2009, "yield": 250000, "revenue": 12.5},
-        {"year": 2010, "yield": 248000, "revenue": 12.4},
-        {"year": 2011, "yield": 258000, "revenue": 12.9},
-        {"year": 2012, "yield": 265000, "revenue": 13.3},
-        {"year": 2013, "yield": 272000, "revenue": 13.6},
-        {"year": 2014, "yield": 268000, "revenue": 13.4},
-        {"year": 2015, "yield": 278000, "revenue": 13.9},
-        {"year": 2016, "yield": 286000, "revenue": 14.3},
+        {"year": 2016, "yield": 17.40, "revenue": 4.52},
+        {"year": 2017, "yield": 19.70, "revenue": 5.12},
+        {"year": 2018, "yield": 21.91, "revenue": 5.70},
+        {"year": 2019, "yield": 24.09, "revenue": 6.26},
+        {"year": 2020, "yield": 24.22, "revenue": 6.30},
+        {"year": 2021, "yield": 25.22, "revenue": 6.56},
+        {"year": 2022, "yield": 22.78, "revenue": 5.92},
+        {"year": 2023, "yield": 22.62, "revenue": 5.88},
+        {"year": 2024, "yield": 21.93, "revenue": 5.70},
+        {"year": 2025, "yield": 21.85, "revenue": 5.68},
     ]
 
     def query_yield(self, start_year: int, end_year: int) -> dict[str, Any]:

@@ -83,10 +83,10 @@ pytest
 ```bash
 curl -X POST http://127.0.0.1:8000/api/ask \
   -H "Content-Type: application/json" \
-  -d "{\"question\":\"延边 2001 年产量怎么样？\"}"
+  -d "{\"question\":\"延边 2020 年产量怎么样？\"}"
 
 curl -N -X POST http://127.0.0.1:8000/api/ask \
   -H "Content-Type: application/json" \
   -H "Accept: text/event-stream" \
-  -d "{\"question\":\"延边 1994 到 2016 年产量趋势？\"}"
+  -d "{\"question\":\"延边 2016 到 2025 年产量趋势？\"}"
 ```
