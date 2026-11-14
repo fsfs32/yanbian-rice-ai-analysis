@@ -99,7 +99,7 @@ class AskResponse(BaseModel):
     labels: list[str | int]
     values: list[float]
     values2: list[float] | None = PydanticField(default=None, description="组合图第二序列，须与 values 等长")
-    summary: str = PydanticField(..., max_length=300)
+    summary: str = PydanticField(..., max_length=800)
     source: str | None = PydanticField(default=None, description="数据来源，展示于图表底部")
 
     @model_validator(mode="after")

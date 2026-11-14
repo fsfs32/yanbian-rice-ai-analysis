@@ -56,7 +56,7 @@ CORRECTION_PROMPT = (
     "你上一次的输出未通过格式校验。请严格通过 submit_answer 工具重新提交，注意："
     "chart_type ∈ {line, bar, scatter, combo}；x_field/y_field/y2_field ∈ {year, yield, revenue}；"
     "labels 与 values 必须等长；chart_type=combo 时必须提供 values2 与 y2_field；"
-    "纯文字回答时 labels 与 values 为空数组；summary 不超过 300 字，title 不超过 80 字。"
+    "纯文字回答时 labels 与 values 为空数组；summary 不超过 800 字，title 不超过 80 字。"
 )
 
 
@@ -248,5 +248,5 @@ class AnalysisAgent:
         """兜底：优先复用模型已给出的文字结论，否则返回通用提示。"""
         summary = answer.get("summary") if isinstance(answer, dict) else None
         if isinstance(summary, str) and summary.strip():
-            return AskResponse.text_only(summary.strip()[:300])
+            return AskResponse.text_only(summary.strip()[:800])
         return AskResponse.text_only("抱歉，本次分析未能生成有效图表，请换一种问法重试。")
