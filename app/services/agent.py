@@ -16,7 +16,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..core.exceptions import ResponseValidationError
+from ..core.exceptions import ToolExecutionError
 from ..schemas import AgentStep, AskRequest, AskResponse, StepPhase
 from ..tools import ToolRegistry
 from .llm import LlmClient
@@ -196,14 +196,19 @@ class AnalysisAgent:
             arguments = json.loads(call["function"].get("arguments") or "{}")
         except json.JSONDecodeError:
             arguments = {}
-        return self._tools.execute(name, arguments)
+        try:
+            return self._tools.execute(name, arguments)
+        except (ToolExecutionError, TypeError, ValueError) as exc:
+            # 工具执行失败不应让整个请求 500，把错误回传给模型，促其修正参数后重试
+            return {"error": f"工具 {name} 执行失败：{exc}"}
 
     @staticmethod
     def _parse_args(call: dict[str, Any]) -> dict[str, Any]:
         try:
             return json.loads(call["function"].get("arguments") or "{}")
-        except json.JSONDecodeError as exc:
-            raise ResponseValidationError("submit_answer 参数解析失败") from exc
+        except json.JSONDecodeError:
+            # 参数解析失败交给 _validate_with_retry 兜底，不中断整个请求
+            return {}
 
     @staticmethod
     def _extract_submit_answer(final: dict[str, Any]) -> dict[str, Any]:
@@ -212,11 +217,12 @@ class AnalysisAgent:
         for call in message.get("tool_calls", []):
             if call["function"]["name"] == "submit_answer":
                 return AnalysisAgent._parse_args(call)
-        content = message.get("content") or ""
+        content = (message.get("content") or "").strip()
         try:
             return json.loads(content)
-        except json.JSONDecodeError as exc:
-            raise ResponseValidationError("模型未通过 submit_answer 提交结果") from exc
+        except json.JSONDecodeError:
+            # 模型未走 submit_answer 工具、返回了自由文本：作为纯文字答案兜底
+            return {"summary": content}
 
     # ------------------------------------------------------------------
     # 校验与兜底
