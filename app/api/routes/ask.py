@@ -19,13 +19,15 @@ from ...schemas import AskRequest
 from ...services.agent import AnalysisAgent
 from ...services.data_source import InMemoryRiceDataSource
 from ...services.llm import LlmClient
+from ...services.rag import KNOWLEDGE_DOCUMENTS, RagRetriever
 from ...tools import build_tool_registry
 
 router = APIRouter(prefix="/api", tags=["ask"])
 
 # 进程级单例（真实环境可注入依赖容器 / 连接池）
 _data_source = InMemoryRiceDataSource()
-_tools = build_tool_registry(_data_source)
+_retriever = RagRetriever(KNOWLEDGE_DOCUMENTS)
+_tools = build_tool_registry(_data_source, _retriever)
 _llm = LlmClient()
 _agent = AnalysisAgent(_llm, _tools)
 

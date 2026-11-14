@@ -13,6 +13,7 @@ from typing import Any, Callable
 
 from .core.exceptions import ToolExecutionError
 from .services.data_source import DataSource
+from .services.rag import RagRetriever
 
 ToolHandler = Callable[[dict[str, Any]], dict[str, Any]]
 
@@ -60,13 +61,26 @@ def _make_query_statistics(datasource: DataSource) -> ToolHandler:
     return handler
 
 
+def _make_search_knowledge(retriever: RagRetriever) -> ToolHandler:
+    """检索延边水稻/农业专业知识库。"""
+
+    def handler(args: dict[str, Any]) -> dict[str, Any]:
+        query = str(args.get("query", "")).strip()
+        top_k = max(1, min(5, int(args.get("top_k", 3))))
+        return {"query": query, "results": retriever.search_as_tool(query, top_k)}
+
+    return handler
+
+
 def _submit_answer(args: dict[str, Any]) -> dict[str, Any]:
     """结构化提交最终答案，参数即标准 AskResponse。"""
     return args
 
 
-def build_tool_registry(datasource: DataSource) -> ToolRegistry:
-    """构建工具注册表。"""
+def build_tool_registry(
+    datasource: DataSource, retriever: RagRetriever | None = None
+) -> ToolRegistry:
+    """构建工具注册表；可选注入知识库检索器以启用 search_knowledge 工具。"""
     registry = ToolRegistry()
 
     registry.register(
@@ -105,6 +119,34 @@ def build_tool_registry(datasource: DataSource) -> ToolRegistry:
         },
         _make_query_statistics(datasource),
     )
+
+    if retriever is not None:
+        registry.register(
+            "search_knowledge",
+            {
+                "name": "search_knowledge",
+                "description": (
+                    "检索延边水稻/农业专业知识库（高产栽培技术、病虫害防治、施肥、"
+                    "稻谷补贴政策等）。当用户询问内置产量数据之外的专业问题时调用，"
+                    "返回命中的知识片段及其来源。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "检索关键词，如「稻瘟病防治」「水稻施肥」「稻谷补贴」",
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "返回条数，默认 3，最大 5",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            },
+            _make_search_knowledge(retriever),
+        )
 
     registry.register(
         "submit_answer",

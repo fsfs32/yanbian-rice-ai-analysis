@@ -10,6 +10,7 @@
 | Web 框架 | FastAPI + Uvicorn |
 | 数据校验 | Pydantic v2 + pydantic-settings |
 | 大模型 | httpx 直连 OpenAI 兼容协议（默认 DeepSeek） |
+| RAG 检索 | BM25 稀疏检索（纯标准库，零依赖） |
 | 输出方式 | JSON / SSE（`text/event-stream`） |
 
 ## 目录结构
@@ -27,7 +28,8 @@ app/
 ├── services/
 │   ├── data_source.py      # 数据源抽象 + 内置示例实现
 │   ├── llm.py              # LLM 客户端（工具调用 / 重试 / 超时）
-│   └── agent.py            # Agent 编排（意图 → 工具 → 结构化生成 + 兜底）
+│   ├── agent.py            # Agent 编排（意图 → 工具 → 结构化生成 + 兜底）
+│   └── rag/                # RAG：BM25 检索器 + 延边水稻专业知识库
 └── api/routes/ask.py       # POST /api/ask（JSON / SSE）
 ```
 
@@ -70,6 +72,8 @@ uvicorn app.main:app --reload --port 8000
 3. **可替换数据源**：`DataSource` 抽象基类 + 内置示例实现，接入真实数据库/统计局 API 无需改工具层。
 4. **返回前校验 + 失败兜底**：Pydantic 校验白名单与等长约束，失败自动纠错重试，仍失败降级为纯文字回答。
 5. **可解释执行轨迹**：SSE 下发 `step` 事件（`AgentStep`），驱动前端「AI 分析流程」面板展示真实推理步骤。
+6. **RAG 检索增强**：内置延边水稻专业知识库（栽培技术、病虫害防治、施肥、稻谷补贴政策），
+   Agent 通过 `search_knowledge` 工具按 BM25 检索相关片段，回答内置数据之外的专业问题并标注来源。
 
 ## 测试
 
