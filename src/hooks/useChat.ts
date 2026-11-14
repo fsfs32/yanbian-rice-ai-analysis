@@ -2,7 +2,7 @@
 // 数据流：组件 → useChat → askApi → 后端 → useChat → 组件 props
 
 import { useCallback, useReducer, useRef, useState } from 'react';
-import type { AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, HistoryEntry } from '../types';
+import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, HistoryEntry } from '../types';
 import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
@@ -31,6 +31,7 @@ const initialState: ChatState = { messages: [], status: 'idle', isLoading: false
 type Action =
   | { type: 'SEND'; userMsgId: string; aiMsgId: string; question: string }
   | { type: 'STATUS'; status: ChatStatus }
+  | { type: 'STEP'; id: string; step: AgentStep }
   | { type: 'APPEND'; id: string; text: string }
   | { type: 'RESULT'; id: string; chart: ChartData; isDemo: boolean; table?: CsvPreview }
   | { type: 'INGEST_START'; id: string }
@@ -63,6 +64,14 @@ function reducer(state: ChatState, action: Action): ChatState {
     }
     case 'STATUS':
       return { ...state, status: action.status };
+    case 'STEP':
+      return {
+        ...state,
+        status: action.step.phase,
+        messages: state.messages.map((m) =>
+          m.id === action.id ? { ...m, steps: [...(m.steps ?? []), action.step] } : m,
+        ),
+      };
     case 'APPEND':
       return {
         ...state,
@@ -140,12 +149,13 @@ async function requestWithRetry(
   isStale: () => boolean,
   isStopped: () => boolean,
   onDelta: (text: string) => void,
+  onStep: (step: AgentStep) => void,
   context: { history: ChatTurn[]; sessionId: string },
 ): Promise<RequestOutcome> {
   for (let attempt = 0; attempt <= 1; attempt++) {
     if (isStopped()) return { kind: 'aborted' };
     try {
-      const data = await streamQuestion(question, onDelta, signal, context);
+      const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep);
       return { kind: 'ok', data, isDemo: false };
     } catch (error) {
       if (isStopped()) return { kind: 'aborted' };
@@ -227,18 +237,31 @@ export function useChat(): UseChatResult {
 
       // SSE 流式：首个增量到达即切到「计算分析」；否则走打字机降级
       let streamed = false;
+      let sawStep = false;
       const onDelta = (text: string) => {
         if (!streamed) {
           streamed = true;
-          dispatch({ type: 'STATUS', status: 'computing' });
+          // 已通过 step 事件推进到更靠后的阶段时，不再回退到「计算分析」
+          if (!sawStep) dispatch({ type: 'STATUS', status: 'computing' });
         }
         if (!isStale()) dispatch({ type: 'APPEND', id: aiMsgId, text });
       };
 
-      const outcome = await requestWithRetry(question, controller.signal, isStale, isStopped, onDelta, {
-        history: turns,
-        sessionId: sessionIdRef.current,
-      });
+      // 可解释推理：后端 SSE 下发 step 事件时，记录真实执行轨迹并驱动状态条
+      const onStep = (step: AgentStep) => {
+        sawStep = true;
+        if (!isStale()) dispatch({ type: 'STEP', id: aiMsgId, step });
+      };
+
+      const outcome = await requestWithRetry(
+        question,
+        controller.signal,
+        isStale,
+        isStopped,
+        onDelta,
+        onStep,
+        { history: turns, sessionId: sessionIdRef.current },
+      );
       if (isStale() || outcome.kind === 'aborted') return;
 
       if (outcome.kind === 'error') {
@@ -340,12 +363,18 @@ export function useChat(): UseChatResult {
       dispatch({ type: 'INGEST_START', id: aiMsgId });
 
       let streamed = false;
+      let sawStep = false;
       const onDelta = (text: string) => {
         if (!streamed) {
           streamed = true;
-          dispatch({ type: 'STATUS', status: 'computing' });
+          if (!sawStep) dispatch({ type: 'STATUS', status: 'computing' });
         }
         if (!isStale()) dispatch({ type: 'APPEND', id: aiMsgId, text });
+      };
+
+      const onStep = (step: AgentStep) => {
+        sawStep = true;
+        if (!isStale()) dispatch({ type: 'STEP', id: aiMsgId, step });
       };
 
       const append = (id: string, text: string) => dispatch({ type: 'APPEND', id, text });
@@ -358,6 +387,7 @@ export function useChat(): UseChatResult {
           controller.signal,
           { history: [], sessionId: sessionIdRef.current },
           csv,
+          onStep,
         );
 
         if (isStale() || isStopped()) return;

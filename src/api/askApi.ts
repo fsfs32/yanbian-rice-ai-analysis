@@ -1,7 +1,7 @@
 // API 层统一出口：封装 fetch、AbortController 超时、错误归一化
 // 前端绝不直接调用任何大模型，只请求后端 VITE_API_BASE_URL + "/api/ask"
 
-import type { AskResponse, ChatTurn, CsvAttachment } from '../types';
+import type { AgentStep, AskResponse, ChatTurn, CsvAttachment } from '../types';
 import { HttpError, NetworkError, ParseError, TimeoutError } from '../utils/normalizeError';
 
 const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000';
@@ -74,6 +74,7 @@ export async function streamQuestion(
   signal?: AbortSignal,
   context?: AskContext,
   csv?: CsvAttachment,
+  onStep?: (step: AgentStep) => void,
 ): Promise<AskResponse> {
   const { controller, cleanup } = buildController(signal);
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -97,11 +98,14 @@ export async function streamQuestion(
       throw new NetworkError();
     }
 
+    // 已收到响应头：流式输出不再受 TIMEOUT_MS 限制，避免长推理 + 全量流式输出被中途掐断
+    clearTimeout(timeoutId);
+
     if (!response.ok) throw new HttpError(response.status);
 
     const contentType = response.headers.get('content-type') ?? '';
     if (contentType.includes('text/event-stream') && response.body) {
-      return await readSse(response.body, onDelta);
+      return await readSse(response.body, onDelta, onStep);
     }
     return await parseJsonResponse(response);
   } finally {
@@ -114,11 +118,13 @@ export async function streamQuestion(
 async function readSse(
   body: ReadableStream<Uint8Array>,
   onDelta: (text: string) => void,
+  onStep?: (step: AgentStep) => void,
 ): Promise<AskResponse> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
   let lastPayload: AskResponse | null = null;
+  let deltaText = '';
 
   for (;;) {
     const { done, value } = await reader.read();
@@ -133,8 +139,12 @@ async function readSse(
       const raw = trimmed.slice(5).trim();
       if (raw === '[DONE]') continue;
       try {
-        const payload = JSON.parse(raw) as Partial<AskResponse> & { delta?: string };
-        if (typeof payload.delta === 'string') onDelta(payload.delta);
+        const payload = JSON.parse(raw) as Partial<AskResponse> & { delta?: string; step?: AgentStep };
+        if (typeof payload.delta === 'string') {
+          deltaText += payload.delta;
+          onDelta(payload.delta);
+        }
+        if (payload.step && typeof payload.step === 'object') onStep?.(payload.step);
         if (typeof payload.summary === 'string' && payload.chart_config) {
           lastPayload = payload as AskResponse;
         }
@@ -144,6 +154,8 @@ async function readSse(
     }
   }
 
-  if (!lastPayload) throw new ParseError();
+  // 只收到 delta（后端流式业务错误，如未配 API Key）而没有完整载荷时，
+  // 把后端透传的错误文本作为提示抛出，避免被「解析失败」吞掉真实原因
+  if (!lastPayload) throw new ParseError(deltaText.trim() || undefined);
   return lastPayload;
 }

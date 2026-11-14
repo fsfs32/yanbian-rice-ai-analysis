@@ -11,14 +11,15 @@ export class HttpError extends Error {
   }
 }
 
-/** JSON 解析失败 */
+/** JSON 解析失败（可选携带后端透传的具体原因） */
 export class ParseError extends Error {
-  readonly userMessage = '返回数据解析失败，请重试';
   readonly retryable = false;
+  readonly userMessage: string;
 
-  constructor() {
+  constructor(customMessage?: string) {
     super('Response parse failed');
     this.name = 'ParseError';
+    this.userMessage = customMessage ?? '返回数据解析失败，请重试';
   }
 }
 

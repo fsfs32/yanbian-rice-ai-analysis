@@ -64,8 +64,13 @@ export function parseCsv(text: string): ParsedCsv | ParseError {
   for (let i = 0; i < normalized.length; i++) {
     const ch = normalized[i];
     if (ch === '"') {
-      inQuotes = !inQuotes;
-      current += ch;
+      if (inQuotes && normalized[i + 1] === '"') {
+        current += '""';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+        current += ch;
+      }
     } else if (ch === '\n' && !inQuotes) {
       lines.push(current);
       current = '';
@@ -79,8 +84,8 @@ export function parseCsv(text: string): ParsedCsv | ParseError {
     return { message: '未识别到有效数据行' };
   }
 
-  const headers = parseLine(lines[0]).map((h) => h.trim()).filter((h) => h.length > 0);
-  if (headers.length === 0) {
+  const headers = parseLine(lines[0]).map((h) => h.trim());
+  if (headers.length === 0 || headers.every((h) => h.length === 0)) {
     return { message: '未识别到表头，请确认首行为列名' };
   }
 
@@ -88,6 +93,9 @@ export function parseCsv(text: string): ParsedCsv | ParseError {
   for (let i = 1; i < lines.length; i++) {
     const cells = parseLine(lines[i]);
     if (cells.every((c) => c.trim() === '')) continue; // 跳过空行
+    // 与表头对齐：补齐缺失列、裁剪多余列，避免列错位
+    while (cells.length < headers.length) cells.push('');
+    if (cells.length > headers.length) cells.length = headers.length;
     rows.push(cells);
   }
 
