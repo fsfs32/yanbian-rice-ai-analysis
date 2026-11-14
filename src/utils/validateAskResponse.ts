@@ -5,7 +5,7 @@ import type { ChartData, ChartType, Field } from '../types';
 const CHART_TYPES: readonly ChartType[] = ['line', 'bar', 'scatter', 'combo'];
 const FIELDS: readonly Field[] = ['year', 'yield', 'revenue'];
 const TITLE_MAX = 80;
-const SUMMARY_MAX = 300;
+const SUMMARY_MAX = 800;
 
 /** 校验结果：成功时携带可渲染的图表数据与已截断的摘要 */
 export type ValidationResult =
