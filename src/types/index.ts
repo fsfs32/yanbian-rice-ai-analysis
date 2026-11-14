@@ -49,6 +49,15 @@ export interface CsvAttachment {
   rows: string[][];
 }
 
+/** Agent 推理步骤：后端通过 SSE step 事件下发，反映 AI 真实执行轨迹 */
+export type StepPhase = 'understanding' | 'querying' | 'computing' | 'rendering';
+
+export interface AgentStep {
+  phase: StepPhase;
+  title: string;
+  detail: string;
+}
+
 /** 对话消息：kind=normal 为普通问答，kind=error 为边界提示 / 错误卡 */
 export interface ChatMessage {
   id: string;
@@ -57,6 +66,8 @@ export interface ChatMessage {
   kind: 'normal' | 'error';
   chart?: ChartData;
   table?: CsvPreview;
+  /** AI 推理步骤（可解释分析），后端未下发时为空 */
+  steps?: AgentStep[];
   isDemo?: boolean;
   pending?: boolean;
 }

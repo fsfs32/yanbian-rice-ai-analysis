@@ -5,6 +5,7 @@ import { calcKpi, formatNumber, formatWan } from '../utils/calcKpi';
 import ChartCard from './ChartCard';
 import KpiCard from './KpiCard';
 import DataTable from './DataTable';
+import ReasoningSteps from './ReasoningSteps';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -53,6 +54,11 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
     <div className="msg-enter flex items-start gap-3">
       <AiBadge />
       <div className="min-w-0 flex-1">
+        {/* 推理过程（后端下发真实轨迹时） */}
+        {message.steps && message.steps.length > 0 && (
+          <ReasoningSteps steps={message.steps} />
+        )}
+
         {/* 结论文字 */}
         {message.content && (
           <p className="whitespace-pre-wrap text-[15px] leading-[1.8] text-text-primary">

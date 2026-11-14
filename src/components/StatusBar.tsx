@@ -1,7 +1,7 @@
 // AI 状态条（展示组件）：真实事件驱动的 Agent 工作流可视化
 // 「理解问题 → 查询数据 → 计算分析 → 生成图表 → 完成」，可点开查看完整步骤与说明
 import { useEffect, useState } from 'react';
-import type { ChatStatus } from '../types';
+import type { AgentStep, ChatStatus } from '../types';
 
 const STEPS = [
   { key: 'understanding', zh: '理解问题', en: 'Parse', detail: '解析问题意图与指标' },
@@ -29,9 +29,11 @@ const ACTIVE_INDEX: Record<ChatStatus, number> = {
 
 interface StatusBarProps {
   status: ChatStatus;
+  /** 后端下发的真实推理步骤，用于覆盖展开面板中的说明文字 */
+  steps?: AgentStep[];
 }
 
-export default function StatusBar({ status }: StatusBarProps) {
+export default function StatusBar({ status, steps }: StatusBarProps) {
   const [showDone, setShowDone] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
@@ -51,6 +53,10 @@ export default function StatusBar({ status }: StatusBarProps) {
     loading ? STAGE_TEXT[status]
     : status === 'done' && showDone ? '分析完成'
     : '按 Enter 发送 · 试试问「产量趋势」';
+
+  // 用后端下发的真实步骤说明覆盖默认文案，实现「可解释分析」
+  const getDetail = (key: string): string =>
+    steps?.find((s) => s.phase === key)?.detail ?? '';
 
   return (
     <div>
@@ -106,7 +112,7 @@ export default function StatusBar({ status }: StatusBarProps) {
                   {step.zh}
                 </span>
                 <span className={`text-[10.5px] ${done || active ? 'text-text-muted' : 'text-text-faint'}`}>
-                  {step.detail}
+                  {getDetail(step.key) || step.detail}
                 </span>
                 <span className="ml-auto text-[9px] uppercase tracking-[0.1em] text-text-faint">
                   {step.en}

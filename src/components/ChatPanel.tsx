@@ -25,6 +25,9 @@ export default function ChatPanel({
   onRetry,
   onIngest,
 }: ChatPanelProps) {
+  // 取最后一条 AI 消息的真实推理步骤，驱动底部状态条展示
+  const lastSteps = [...messages].reverse().find((m) => m.role === 'assistant')?.steps;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 消息区（居中，滚动） */}
@@ -49,7 +52,7 @@ export default function ChatPanel({
       {/* 底部输入区 */}
       <div className="border-t border-border bg-canvas">
         <div className="mx-auto w-full max-w-[768px] px-4 pb-4 pt-3">
-          <StatusBar status={status} />
+          <StatusBar status={status} steps={lastSteps} />
           <div className="mt-2.5">
             <InputBar
               isLoading={isLoading}
