@@ -1,29 +1,19 @@
 // Mock 演示数据：仅在后端不可用时降级使用，界面会明确标注「演示数据」
-// 数据为延边州 1994—2016 年水稻产量的示例取值，仅供演示与界面联调
+// 数据为延边州 2016—2025 年稻谷产量（万吨）与产值估算（亿元），与后端内置数据源一致
+// 来源：延边州历年《国民经济和社会发展统计公报》（产量），产值 = 产量 × 粳稻均价约 2.6 元/公斤（估算）
 
 import type { AskResponse } from '../types';
 
-export const LABELS: number[] = [
-  1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,
-  2010, 2011, 2012, 2013, 2014, 2015, 2016,
-];
+export const LABELS: number[] = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
 
-export const VALUES: number[] = [
-  172000, 178000, 184000, 181000, 190000, 196000, 188000, 195000, 201000, 199000, 208000, 214000,
-  211000, 218000, 224000, 220000, 229000, 235000, 231000, 238000, 234000, 241000, 246000,
-];
+export const VALUES: number[] = [17.4, 19.7, 21.91, 24.09, 24.22, 25.22, 22.78, 22.62, 21.93, 21.85];
 
-// 大米单价（元/吨）：随年份温和上涨，用于估算销售额（演示数据，仅作对应关系展示）
-const PRICE_PER_TON = VALUES.map((_, i) => 4600 + i * 55);
+// 产值估算（亿元），用于组合图第二序列，与后端 data_source 保持一致
+export const REVENUE_VALUES: number[] = [4.52, 5.12, 5.7, 6.26, 6.3, 6.56, 5.92, 5.88, 5.7, 5.68];
 
-/** 销售额（亿元）= 产量（吨）× 单价（元/吨）/ 1e8，用于组合图第二序列 */
-export const REVENUE_VALUES: number[] = VALUES.map((v, i) =>
-  Number(((v * PRICE_PER_TON[i]) / 1e8).toFixed(2)),
-);
+const SOURCE = '延边州历年《国民经济和社会发展统计公报》';
 
-const SOURCE = '延边州统计局 · 1994—2016';
-
-/** 构造标准响应：默认返回组合图，同时携带产量与销售额两个序列 */
+/** 构造标准响应：默认返回组合图，同时携带产量与产值两个序列 */
 function buildAnswer(
   title: string,
   summary: string,
@@ -86,16 +76,16 @@ export function getMockResponse(question: string): AskResponse {
   if (/平均|均值/.test(question)) {
     const avg = VALUES.reduce((a, b) => a + b, 0) / VALUES.length;
     return buildAnswer(
-      '1994—2016 年延边水稻产量',
-      `1994—2016 年延边州水稻年均产量约为 ${(avg / 10000).toFixed(1)} 万吨，多数年份稳定在 20 万吨上下。`,
+      '2016—2025 年延边水稻产量',
+      `2016—2025 年延边州水稻年均产量约为 ${avg.toFixed(2)} 万吨，多数年份稳定在 22 万吨上下。`,
     );
   }
 
   if (/最高|最大|最多/.test(question)) {
     const { year, value } = maxYear();
     return buildAnswer(
-      '1994—2016 年延边水稻产量',
-      `产量最高的年份是 ${year} 年，约为 ${(value / 10000).toFixed(1)} 万吨。`,
+      '2016—2025 年延边水稻产量',
+      `产量最高的年份是 ${year} 年，约为 ${value.toFixed(2)} 万吨。`,
       'bar',
     );
   }
@@ -104,13 +94,13 @@ export function getMockResponse(question: string): AskResponse {
     const { year, delta } = maxDeltaYear();
     const dir = delta > 0 ? '上升' : '下降';
     return buildAnswer(
-      '1994—2016 年延边水稻产量',
-      `产量波动最大的年份是 ${year} 年，较前一年${dir}约 ${Math.round(Math.abs(delta)).toLocaleString('zh-CN')} 吨。`,
+      '2016—2025 年延边水稻产量',
+      `产量波动最大的年份是 ${year} 年，较前一年${dir}约 ${Math.abs(delta).toFixed(2)} 万吨。`,
     );
   }
 
   return buildAnswer(
-    '1994—2016 年水稻产量趋势',
-    '从 1994 年到 2016 年，延边州水稻产量整体呈稳步上升趋势，个别年份略有波动。',
+    '2016—2025 年水稻产量趋势',
+    '从 2016 年到 2025 年，延边州稻谷产量整体呈先升后降的倒 U 型走势，2021 年达到峰值后小幅回落。',
   );
 }

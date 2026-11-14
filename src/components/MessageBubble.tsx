@@ -48,6 +48,7 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
     );
   }
 
+  const isCsv = Boolean(message.table);
   const kpi = message.chart ? calcKpi(message.chart.labels, message.chart.values) : null;
 
   return (
@@ -79,12 +80,22 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
           </div>
         )}
 
-        {/* KPI 指标（有图表数据时） */}
+        {/* KPI 指标（有图表数据时）：内置数据用产量口径，上传 CSV 用通用统计 */}
         {kpi && (
           <div className="mt-3 grid grid-cols-3 gap-2">
-            <KpiCard label="总产量" labelEn="Total" value={formatNumber(kpi.total)} unit="吨" />
-            <KpiCard label="最高年份" labelEn="Peak" value={String(kpi.maxYear)} />
-            <KpiCard label="年均产量" labelEn="Avg." value={formatWan(kpi.avg)} />
+            {isCsv ? (
+              <>
+                <KpiCard label="数据合计" labelEn="Total" value={formatNumber(kpi.total)} />
+                <KpiCard label="最大值" labelEn="Peak" value={formatNumber(kpi.maxValue)} />
+                <KpiCard label="平均值" labelEn="Avg." value={formatNumber(kpi.avg)} />
+              </>
+            ) : (
+              <>
+                <KpiCard label="总产量" labelEn="Total" value={formatNumber(kpi.total)} unit="万吨" />
+                <KpiCard label="最高年份" labelEn="Peak" value={String(kpi.maxYear)} />
+                <KpiCard label="年均产量" labelEn="Avg." value={formatWan(kpi.avg)} />
+              </>
+            )}
           </div>
         )}
 

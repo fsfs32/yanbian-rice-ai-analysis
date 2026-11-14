@@ -15,6 +15,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputBarProps) {
   const [value, setValue] = useState('');
+  const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
@@ -35,13 +36,23 @@ export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputB
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!/\.csv$/i.test(file.name) || file.size > MAX_FILE_SIZE) return;
+    if (!/\.csv$/i.test(file.name)) {
+      setError('仅支持 .csv 文件');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setError('文件大小不能超过 5MB');
+      return;
+    }
+    setError('');
 
     const reader = new FileReader();
     reader.onload = () => {
       const text = typeof reader.result === 'string' ? reader.result : '';
       const parsed = parseCsv(text);
-      if (!('message' in parsed)) {
+      if ('message' in parsed) {
+        setError(parsed.message);
+      } else {
         onIngest({ fileName: file.name, headers: parsed.headers, rows: parsed.rows });
       }
     };
@@ -100,6 +111,11 @@ export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputB
           </button>
         )}
       </div>
+      {error && (
+        <p className="px-4 pb-2 text-[12px] text-red-500" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
