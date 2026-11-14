@@ -329,9 +329,11 @@ export function useChat(): UseChatResult {
           `识别到 ${insight.numericColumnCount} 个数值列。` +
           `其中「${insight.series.valueLabel}」的峰值为 ${stats.max.toLocaleString('zh-CN')}，` +
           `均值约为 ${Math.round(stats.avg).toLocaleString('zh-CN')}。`;
+        // 数据点较多时柱状图会因柱子过细（边框/圆角覆盖）而空白，改用折线图保证可读
+        const pointCount = insight.series.values.length;
         fallbackChart = {
           config: {
-            chart_type: 'bar',
+            chart_type: pointCount > 30 ? 'line' : 'bar',
             x_field: 'year',
             y_field: 'yield',
             title: `${insight.series.valueLabel} · 数据预览`,

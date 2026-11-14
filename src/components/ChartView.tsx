@@ -145,6 +145,8 @@ function buildOption(
         smooth: !isBar,
         symbol: 'circle',
         symbolSize: 6,
+        // 数据点多时不画圆点标记，避免密集圆点糊成一条粗线
+        showSymbol: isBar ? undefined : values.length <= 60,
         barMaxWidth: 22,
         itemStyle: {
           color: COLOR_YIELD,
