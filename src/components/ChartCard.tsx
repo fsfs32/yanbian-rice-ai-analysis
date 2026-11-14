@@ -24,6 +24,8 @@ export default function ChartCard({ data }: ChartCardProps) {
   const [chartType, setChartType] = useState<ChartType>(() => {
     if (config.chart_type === 'combo' && hasCombo) return 'combo';
     if (config.chart_type === 'scatter') return 'line';
+    // 数据点过多时柱状图会因柱子过细而不可读，默认降级为折线图（用户仍可手动切回柱状图）
+    if (config.chart_type === 'bar' && values.length > 60) return 'line';
     return config.chart_type;
   });
 

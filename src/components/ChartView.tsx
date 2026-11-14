@@ -127,6 +127,8 @@ function buildOption(
 
   // 单序列：折线 / 柱状（散点由折线兜底，不暴露切换入口）
   const isBar = chartType === 'bar';
+  // 柱子过多时（如上传大 CSV），细柱会被白色描边与圆角覆盖成「空白」，去掉描边/圆角以保证可见
+  const isDenseBar = isBar && values.length > 60;
   return {
     backgroundColor: 'transparent',
     grid: { left: 12, right: 16, top: 18, bottom: 24, containLabel: true },
@@ -150,9 +152,8 @@ function buildOption(
         barMaxWidth: 22,
         itemStyle: {
           color: COLOR_YIELD,
-          borderColor: '#ffffff',
-          borderWidth: 1.5,
-          ...(isBar ? { borderRadius: [3, 3, 0, 0] } : {}),
+          ...(isDenseBar ? {} : { borderColor: '#ffffff', borderWidth: 1.5 }),
+          ...(isBar && !isDenseBar ? { borderRadius: [3, 3, 0, 0] } : {}),
         },
         lineStyle: isBar ? undefined : { width: 2, color: COLOR_YIELD },
         areaStyle: isBar
