@@ -496,7 +496,7 @@ class AnalysisAgent:
                 abs(value - round(a / b * 100, 1)) <= 0.2
                 for a in known_list
                 for b in known_list
-                if b
+                if b and a != b
             ):
                 derived += 1
                 continue

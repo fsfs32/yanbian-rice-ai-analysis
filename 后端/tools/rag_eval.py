@@ -1,0 +1,87 @@
+#!/usr/bin/env python
+"""RAG 检索质量评测：用固定 query 集算 Recall@1 / Recall@3。
+
+为什么要有这个：
+比赛评分里写「生成质量是否因检索增强而显著提升」，但「用了 RAG」和「RAG 有用」
+是两件事。这个脚本提供一个可复现的数字：给定二十条真实问法，
+检索器的前三条结果里有没有命中该答的那篇文档。
+
+用法（在后端目录下）：
+    .venv\\Scripts\\python.exe tools/rag_eval.py
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.services.rag import KNOWLEDGE_DOCUMENTS, RagRetriever  # noqa: E402
+
+# (用户问法, 期望命中的文档标题关键词)
+# 关键词取自知识库标题，命中即视为检索正确
+EVAL_SET: list[tuple[str, str]] = [
+    ("什么时候插秧", "农时"),
+    ("插完秧水要放多深", "水层"),
+    ("稻瘟病怎么防治", "病虫害"),
+    ("稗草怎么除", "稗草"),
+    ("种什么品种好", "品种"),
+    ("稻谷补贴怎么申请", "补贴"),
+    ("氮肥怎么施", "施肥"),
+    ("低温冷害怎么防", "水层"),
+    ("2025年产量多少", "2025"),
+    ("整地有什么要求", "栽培"),
+    ("稻飞虱用什么药", "病虫害"),
+    ("纹枯病什么时候防", "病虫害"),
+    ("秧龄多长合适", "栽培"),
+    ("山区的插秧时间", "农时"),
+    ("吉粳830 是什么品种", "品种"),
+    ("两封一杀是什么意思", "稗草"),
+    ("分蘖肥什么时候施", "施肥"),
+    ("稻谷补贴给谁", "补贴"),
+    ("亩产多少", "2025"),
+    ("育秧注意什么", "栽培"),
+]
+
+
+def main() -> int:
+    retriever = RagRetriever(KNOWLEDGE_DOCUMENTS)
+    hit1 = hit3 = 0
+    failures: list[str] = []
+
+    print(f"知识库：{len(KNOWLEDGE_DOCUMENTS)} 篇文档")
+    print(f"评测集：{len(EVAL_SET)} 条问法")
+    print("-" * 78)
+
+    for query, expected in EVAL_SET:
+        hits = retriever.search(query, top_k=3)
+        titles = [h.title for h in hits]
+        in_top1 = bool(titles) and expected in titles[0]
+        in_top3 = any(expected in t for t in titles)
+
+        hit1 += int(in_top1)
+        hit3 += int(in_top3)
+        mark = "OK " if in_top3 else "MISS"
+        print(f"{mark} {query:<18} 期望「{expected}」 → 实际：{' / '.join(titles[:3])}")
+        if not in_top3:
+            failures.append(f"{query} → 期望「{expected}」，实际 {titles[:3]}")
+
+    total = len(EVAL_SET)
+    recall1 = hit1 / total * 100
+    recall3 = hit3 / total * 100
+
+    print("-" * 78)
+    print(f"Recall@1 = {hit1}/{total} = {recall1:.1f}%")
+    print(f"Recall@3 = {hit3}/{total} = {recall3:.1f}%")
+
+    if failures:
+        print("\n未命中：")
+        for item in failures:
+            print("  -", item)
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
