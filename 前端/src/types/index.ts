@@ -18,6 +18,8 @@ export interface ChartConfig {
 
 /** 后端 /api/ask 的标准响应结构 */
 export interface AskResponse {
+  /** 本次问答的模型用量 */
+  usage?: UsageInfo | null;
   chart_config: ChartConfig;
   labels: (string | number)[];
   values: number[];
@@ -28,6 +30,15 @@ export interface AskResponse {
 }
 
 /** 通过运行时校验、可直接用于渲染的图表数据 */
+/** 单次问答的模型用量（后端返回，用于成本观测） */
+export interface UsageInfo {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+  calls: number;
+  estimated_cost_cny?: number | null;
+}
+
 export interface ChartData {
   config: ChartConfig;
   labels: (string | number)[];

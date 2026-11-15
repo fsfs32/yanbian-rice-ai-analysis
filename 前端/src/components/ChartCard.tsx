@@ -15,9 +15,11 @@ const TIP_DURATION_MS = 4000;
 
 interface ChartCardProps {
   data: ChartData;
+  /** 点击数据点时把追问抛给对话层 */
+  onPointClick?: (label: string | number, value: number) => void;
 }
 
-export default function ChartCard({ data }: ChartCardProps) {
+export default function ChartCard({ data, onPointClick }: ChartCardProps) {
   const { config, labels, values, values2, source } = data;
   // 组合图仅在第二序列存在且长度一致时可用
   const hasCombo = Boolean(values2 && values2.length === values.length);
@@ -122,6 +124,7 @@ export default function ChartCard({ data }: ChartCardProps) {
             values2={values2}
             title={config.title}
             source={source}
+            onPointClick={onPointClick}
           />
         </Suspense>
       </div>

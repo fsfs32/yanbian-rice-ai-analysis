@@ -108,6 +108,20 @@ class ChartConfig(BaseModel):
     title: str = PydanticField(..., max_length=80)
 
 
+class UsageInfo(BaseModel):
+    """单次问答的模型用量。
+
+    token 数来自上游返回的 usage 字段；金额只是按配置单价折算的参考值，
+    真实计费以上游账单为准，所以这里叫「估算」。
+    """
+
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    total_tokens: int = 0
+    calls: int = 0
+    estimated_cost_cny: float | None = None
+
+
 class AskResponse(BaseModel):
     """POST /api/ask 标准响应。"""
 
@@ -122,6 +136,11 @@ class AskResponse(BaseModel):
     followups: list[str] = PydanticField(
         default_factory=list,
         description="推荐追问（最多 3 条），前端渲染成可点击的继续提问入口",
+    )
+
+    usage: UsageInfo | None = PydanticField(
+        default=None,
+        description="本次问答的模型 token 用量，用于成本观测",
     )
 
     @model_validator(mode="after")

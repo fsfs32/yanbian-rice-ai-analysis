@@ -89,6 +89,17 @@ class AnalysisResult:
     steps: list[AgentStep] = field(default_factory=list)
 
 
+def _accumulate_usage(totals: dict[str, int], usage: dict[str, Any] | None) -> None:
+    """把一次模型调用的 usage 累加进总计；上游没返回就跳过。"""
+    if not isinstance(usage, dict):
+        return
+    for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+        value = usage.get(key)
+        if isinstance(value, int):
+            totals[key] = totals.get(key, 0) + value
+    totals["calls"] = totals.get("calls", 0) + 1
+
+
 class AnalysisAgent:
     """意图识别 → 工具调用 → 结构化生成的编排器。"""
 
@@ -203,6 +214,8 @@ class AnalysisAgent:
         last_text = ""
         # 收集本轮所有工具返回的数值，供输出后的数字核对使用
         known_numbers: set[float] = set()
+        # 累计本轮所有模型调用的 token 用量，用于成本观测
+        usage_totals = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "calls": 0}
 
         for round_index in range(1, self.MAX_TOOL_ROUNDS + 1):
             calls: list[dict[str, Any]] = []
@@ -213,6 +226,7 @@ class AnalysisAgent:
                 else:
                     calls = payload["calls"]
                     text = payload["text"]
+                    _accumulate_usage(usage_totals, payload.get("usage"))
             if text:
                 last_text = text
 
@@ -317,7 +331,7 @@ class AnalysisAgent:
             steps.append(rendering)
             yield {"type": "step", "step": rendering}
 
-        yield {"type": "result", "response": response, "steps": steps}
+        yield {"type": "result", "response": response, "steps": steps, "usage": usage_totals}
 
     async def _stream_round(
         self, messages: list[dict[str, Any]]
@@ -335,6 +349,7 @@ class AnalysisAgent:
         submit_index: int | None = None
         calls: list[dict[str, Any]] = []
         free_text = ""
+        round_usage: dict[str, Any] = {}
 
         async for event in self._llm.chat_stream(messages, tools=self._tools.schemas()):
             event_type = event.get("type")
@@ -353,8 +368,9 @@ class AnalysisAgent:
                     yield ("delta", piece)
             elif event_type == "done":
                 calls = event.get("tool_calls") or []
+                round_usage = event.get("usage") or {}
 
-        yield ("round", {"calls": calls, "text": free_text})
+        yield ("round", {"calls": calls, "text": free_text, "usage": round_usage})
 
     # ------------------------------------------------------------------
     # 消息组装

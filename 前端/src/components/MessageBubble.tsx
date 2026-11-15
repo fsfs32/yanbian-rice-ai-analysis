@@ -106,7 +106,17 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
         {/* 图表 */}
         {message.chart && (
           <div className="mt-4">
-            <ChartCard data={message.chart} />
+            <ChartCard
+          data={message.chart}
+          onPointClick={(label, value) => {
+            // 年份与市州名的追问措辞不同，这里按 label 形态分一下
+            const isYear = /^\d{4}$/.test(String(label));
+            const question = isYear
+              ? `${label} 年为什么是 ${value} 万吨？`
+              : `${label} 为什么是 ${value} 万吨？`;
+            onFollowup?.(question);
+          }}
+        />
           </div>
         )}
 

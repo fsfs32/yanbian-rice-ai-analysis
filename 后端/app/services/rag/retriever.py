@@ -36,6 +36,39 @@ class RetrievalHit:
     score: float
 
 
+# 口语化说法 → 知识库里的术语。
+# 农户很少说「稻瘟病防治」，更多是「打药」「治虫」「收成咋样」。
+# BM25 是逐词匹配，不先做这一步，口语问法很容易召不回来。
+_SYNONYMS: dict[str, str] = {
+    "收成": "产量",
+    "打的粮": "产量 稻谷",
+    "打药": "防治 药剂",
+    "喷药": "防治 药剂",
+    "上肥": "施肥",
+    "追肥": "施肥",
+    "治虫": "病虫害 防治",
+    "虫子": "病虫害",
+    "病斑": "病害 防治",
+    "烂根": "纹枯病 立枯病",
+    "卷叶": "稻纵卷叶螟 防治",
+    "育苗": "育秧 播种",
+    "下种": "播种",
+    "泡田": "整地 水层",
+    "水深": "水层",
+    "多深": "水层 厘米",
+    "亩产": "亩产 单产",
+}
+
+
+def _rewrite_query(query: str) -> str:
+    """把口语词替换成知识库术语，保留原词与术语两路检索的机会。"""
+    text = query
+    for spoken, term in _SYNONYMS.items():
+        if spoken in text:
+            text = text.replace(spoken, f" {term} ")
+    return text
+
+
 def _tokenize(text: str) -> list[str]:
     """中文用「单字 + 相邻双字」切分，英文/数字整体切分，避免依赖分词库。"""
     text = text.lower()
@@ -109,7 +142,11 @@ class RagRetriever:
         """按 BM25 相关性检索 top_k 个最相关片段。"""
         if not self._docs or not query.strip():
             return []
-        q_terms = [t for t in set(_tokenize(query)) if t in self._df]
+        # 原问题与改写后的问题各切一次词，取并集：
+        # 「打药」这种口语词靠改写补回「防治/药剂」，原词也不丢
+        q_terms = {t for t in _tokenize(query) if t in self._df}
+        q_terms |= {t for t in _tokenize(_rewrite_query(query)) if t in self._df}
+        q_terms = list(q_terms)
         if not q_terms:
             return []
 

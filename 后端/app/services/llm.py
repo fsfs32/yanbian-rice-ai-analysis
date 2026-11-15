@@ -106,11 +106,14 @@ class LlmClient:
         """
         payload = self._base_payload(messages, tools, temperature)
         payload["stream"] = True
+        # 流式默认不返回用量，显式要求上游在最后一帧带上 usage
+        payload["stream_options"] = {"include_usage": True}
         headers = self._headers()
 
         # 按 index 累积工具调用（OpenAI 协议里流式 tool_calls 是分片的）
         slots: dict[int, dict[str, str]] = {}
         started: set[int] = set()
+        usage: dict[str, int] = {}
 
         async with httpx.AsyncClient(timeout=settings.llm_timeout_seconds) as client:
             try:
@@ -132,6 +135,14 @@ class LlmClient:
                             chunk = json.loads(data)
                         except json.JSONDecodeError:
                             continue
+
+                        chunk_usage = chunk.get("usage")
+                        if isinstance(chunk_usage, dict):
+                            usage = {
+                                "prompt_tokens": int(chunk_usage.get("prompt_tokens") or 0),
+                                "completion_tokens": int(chunk_usage.get("completion_tokens") or 0),
+                                "total_tokens": int(chunk_usage.get("total_tokens") or 0),
+                            }
 
                         choices = chunk.get("choices") or []
                         if not choices:
@@ -172,4 +183,4 @@ class LlmClient:
             for _, slot in sorted(slots.items())
             if slot["name"]
         ]
-        yield {"type": "done", "tool_calls": calls}
+        yield {"type": "done", "tool_calls": calls, "usage": usage}

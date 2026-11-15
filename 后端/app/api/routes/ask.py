@@ -60,6 +60,11 @@ async def _stream(request: AskRequest) -> AsyncIterator[str]:
                 yield f"data: {json.dumps({'delta': event['text']}, ensure_ascii=False)}\n\n"
             elif event_type == "result":
                 payload = event["response"].model_dump(exclude_none=True)
+                usage = event.get("usage") or {}
+                if usage.get("total_tokens"):
+                    # 单价按 DeepSeek 公开定价折算，仅作量级参考
+                    cost = (usage.get("prompt_tokens", 0) * 2 + usage.get("completion_tokens", 0) * 8) / 1_000_000
+                    payload["usage"] = {**usage, "estimated_cost_cny": round(cost, 5)}
                 yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
     except AppError as exc:
         # 业务错误（如未配置 API Key）：把具体原因透传给前端

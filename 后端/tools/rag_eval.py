@@ -48,10 +48,37 @@ EVAL_SET: list[tuple[str, str]] = [
     ("负泥虫怎么办", "负泥虫"),
     ("二化螟什么时候打药", "防治指标"),
     ("稻田能用菊酯类农药吗", "安全用药"),
+    # 以下 5 条是纯口语问法，用来验证查询改写有没有起作用
+    ("今年收成咋样", "2025"),
+    ("打药治稻瘟病", "病虫害"),
+    ("上肥怎么弄", "施肥"),
+    ("稗草多咋办", "稗草"),
+    ("插完水放多深", "水层"),
 ]
 
 
+def _run_eval(retriever: RagRetriever, quiet: bool = False) -> tuple[int, int, list[str]]:
+    """跑一遍评测集，返回 (Recall@1 命中数, Recall@3 命中数, 未命中列表)。"""
+    hit1 = hit3 = 0
+    failures: list[str] = []
+    for query, expected in EVAL_SET:
+        hits = retriever.search(query, top_k=3)
+        titles = [h.title for h in hits]
+        in_top1 = bool(titles) and expected in titles[0]
+        in_top3 = any(expected in t for t in titles)
+        hit1 += int(in_top1)
+        hit3 += int(in_top3)
+        if not in_top3:
+            failures.append(f"{query} → 期望「{expected}」，实际 {titles[:3]}")
+        if not quiet:
+            mark = "OK " if in_top3 else "MISS"
+            print(f"{mark} {query:<18} 期望「{expected}」 → 实际：{' / '.join(titles[:3])}")
+    return hit1, hit3, failures
+
+
 def main() -> int:
+    from app.services.rag import retriever as retriever_module
+
     retriever = RagRetriever(KNOWLEDGE_DOCUMENTS)
     hit1 = hit3 = 0
     failures: list[str] = []
@@ -60,19 +87,7 @@ def main() -> int:
     print(f"评测集：{len(EVAL_SET)} 条问法")
     print("-" * 78)
 
-    for query, expected in EVAL_SET:
-        hits = retriever.search(query, top_k=3)
-        titles = [h.title for h in hits]
-        in_top1 = bool(titles) and expected in titles[0]
-        in_top3 = any(expected in t for t in titles)
-
-        hit1 += int(in_top1)
-        hit3 += int(in_top3)
-        mark = "OK " if in_top3 else "MISS"
-        print(f"{mark} {query:<18} 期望「{expected}」 → 实际：{' / '.join(titles[:3])}")
-        if not in_top3:
-            failures.append(f"{query} → 期望「{expected}」，实际 {titles[:3]}")
-
+    hit1, hit3, failures = _run_eval(retriever)
     total = len(EVAL_SET)
     recall1 = hit1 / total * 100
     recall3 = hit3 / total * 100
@@ -85,6 +100,20 @@ def main() -> int:
         print("\n未命中：")
         for item in failures:
             print("  -", item)
+
+    # 对照实验：临时关掉查询改写，看口语问法会掉多少
+    original = retriever_module._rewrite_query
+    try:
+        retriever_module._rewrite_query = lambda q: q  # type: ignore[assignment]
+        base1, base3, _ = _run_eval(retriever, quiet=True)
+    finally:
+        retriever_module._rewrite_query = original  # type: ignore[assignment]
+
+    print()
+    print("对照实验（关闭查询改写）：")
+    print(f"  Recall@1 = {base1}/{total} = {base1 / total * 100:.1f}%")
+    print(f"  Recall@3 = {base3}/{total} = {base3 / total * 100:.1f}%")
+    print(f"  改写带来的 Recall@1 提升：{(hit1 - base1) / total * 100:.1f} 个百分点")
 
     return 0
 

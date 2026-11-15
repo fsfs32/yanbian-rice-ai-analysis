@@ -14,7 +14,7 @@ export default function App() {
     isLoading,
     history,
     dataset,
-    latencyMs,
+    latencyMs, usage,
     clearDataset,
     sendQuestion,
     stop,
@@ -26,7 +26,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div className="flex h-screen flex-col bg-canvas">
-        <TopBar onNewChat={reset} latencyMs={latencyMs} />
+        <TopBar onNewChat={reset} latencyMs={latencyMs} usage={usage} />
         <div className="flex min-h-0 flex-1">
           <HistoryRail
             history={history}

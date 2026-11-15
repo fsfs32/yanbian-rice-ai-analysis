@@ -9,9 +9,11 @@ interface TopBarProps {
   onNewChat: () => void;
   /** 最近一次问答耗时（毫秒）；null 表示本轮还没问过 */
   latencyMs?: number | null;
+  /** 最近一次问答的 token 用量，用于让成本可见 */
+  usage?: { total_tokens: number; estimated_cost_cny?: number | null } | null;
 }
 
-export default function TopBar({ onNewChat, latencyMs }: TopBarProps) {
+export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
   const [logoOk, setLogoOk] = useState(true);
   const [model, setModel] = useState<string | null>(null);
 
@@ -27,6 +29,15 @@ export default function TopBar({ onNewChat, latencyMs }: TopBarProps) {
 
   const latencyText =
     typeof latencyMs === 'number' && latencyMs > 0 ? `${(latencyMs / 1000).toFixed(1)}s` : null;
+
+  // token 用量：超过一千按 k 显示；成本按后端折算值显示到分位
+  const usageText =
+    usage && usage.total_tokens > 0
+      ? usage.total_tokens >= 1000
+        ? `${(usage.total_tokens / 1000).toFixed(1)}k tokens`
+        : `${usage.total_tokens} tokens`
+      : null;
+  const costText = usage?.estimated_cost_cny ? `约 ¥${usage.estimated_cost_cny.toFixed(3)}` : null;
 
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
@@ -50,16 +61,22 @@ export default function TopBar({ onNewChat, latencyMs }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* 运行状态角标：模型名 + 上次响应耗时 */}
-        {(model || latencyText) && (
+        {/* 运行状态角标：模型名 + 上次响应耗时 + token 用量 */}
+        {(model || latencyText || usageText) && (
           <span
             className="hidden items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-text-faint md:inline-flex"
-            title="当前模型与最近一次响应耗时"
+            title={
+              costText
+                ? `当前模型、最近一次响应耗时与 token 用量（${costText}）`
+                : '当前模型、最近一次响应耗时与 token 用量'
+            }
           >
             <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
             {model}
-            {model && latencyText && <span className="text-border-strong">·</span>}
+            {model && (latencyText || usageText) && <span className="text-border-strong">·</span>}
             {latencyText}
+            {latencyText && usageText && <span className="text-border-strong">·</span>}
+            {usageText}
           </span>
         )}
 

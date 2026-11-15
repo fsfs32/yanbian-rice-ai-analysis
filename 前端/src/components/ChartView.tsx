@@ -23,6 +23,8 @@ interface ChartViewProps {
   title: string;
   /** 导出图片时写入水印的数据来源 */
   source?: string;
+  /** 点击某个数据点时回调，用于把图表变成追问入口 */
+  onPointClick?: (label: string | number, value: number) => void;
 }
 
 /** 暴露给父组件的导出能力 */
@@ -32,7 +34,7 @@ export interface ChartViewHandle {
 
 const ChartView = memo(
   forwardRef<ChartViewHandle, ChartViewProps>(function ChartView(
-    { labels, values, chartType, values2, title, source },
+    { labels, values, chartType, values2, title, source, onPointClick },
     ref,
   ) {
     const chartRef = useRef<ComponentRef<typeof ReactEChartsCore> | null>(null);
@@ -68,6 +70,21 @@ const ChartView = memo(
           option={option}
           notMerge
           lazyUpdate
+          onEvents={
+            onPointClick
+              ? {
+                  click: (params: { name?: string | number; value?: unknown; dataIndex?: number }) => {
+                    const index = typeof params.dataIndex === 'number' ? params.dataIndex : -1;
+                    if (index < 0 || index >= labels.length) return;
+                    const rawValue = Array.isArray(params.value)
+                      ? Number(params.value[params.value.length - 1])
+                      : Number(params.value);
+                    if (!Number.isFinite(rawValue)) return;
+                    onPointClick(labels[index], rawValue);
+                  },
+                }
+              : undefined
+          }
           style={{ height: '100%', width: '100%' }}
         />
       </div>

@@ -2,7 +2,7 @@
 // 数据流：组件 → useChat → askApi → 后端 → useChat → 组件 props
 
 import { useCallback, useReducer, useRef, useState } from 'react';
-import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry } from '../types';
+import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry, UsageInfo } from '../types';
 import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
@@ -226,6 +226,8 @@ export interface UseChatResult {
   dataset: CsvDataset | null;
   /** 最近一次问答从发出到出图的耗时（毫秒），用于顶栏状态角标 */
   latencyMs: number | null;
+  /** 最近一次问答的 token 用量，用于成本观测 */
+  usage: UsageInfo | null;
   clearDataset: () => void;
   sendQuestion: (question: string) => void;
   ingestCsv: (input: { fileName: string; headers: string[]; rows: string[][] }) => void;
@@ -239,6 +241,7 @@ export function useChat(): UseChatResult {
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [dataset, setDataset] = useState<CsvDataset | null>(null);
   const [latencyMs, setLatencyMs] = useState<number | null>(null);
+  const [usage, setUsage] = useState<UsageInfo | null>(null);
   const runIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
@@ -341,6 +344,7 @@ export function useChat(): UseChatResult {
       await sleep(260);
       if (isStale() || isStopped()) return;
       setLatencyMs(Date.now() - startedAt);
+      setUsage((outcome.data as { usage?: UsageInfo | null }).usage ?? null);
       dispatch({
         type: 'RESULT',
         id: aiMsgId,
@@ -512,6 +516,7 @@ export function useChat(): UseChatResult {
     history,
     dataset,
     latencyMs,
+    usage,
     clearDataset,
     sendQuestion,
     ingestCsv,
