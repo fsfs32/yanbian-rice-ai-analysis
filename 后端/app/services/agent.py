@@ -60,7 +60,9 @@ SYSTEM_PROMPT = """你是「延边大米长势与产量」数据分析专家。
     用一两句话回应，并简要说明你能做什么（产量趋势与统计、栽培与病虫害、补贴政策、CSV 数据分析），
     不要顺着上一轮话题硬答，也不要输出图表（labels 与 values 传空数组）；
 12. 与延边水稻、农业完全无关的问题，简短说明能力边界并给出可以问的方向，
-    同样不输出图表、不编造数据。
+    同样不输出图表、不编造数据；
+13. 回答一律用纯文本：不要使用 Markdown 语法（不要用 ** 加粗、# 标题、代码块、表格），
+    需要分点时用「1. 2. 3.」或「-」开头即可。
 """
 
 # 校验失败后的纠错提示，引导模型输出合规结构
@@ -183,11 +185,13 @@ class AnalysisAgent:
 
         # ---- 第一轮：模型决定「直接答」还是「先查数据」 ----
         first_calls: list[dict[str, Any]] = []
+        first_text = ""
         async for kind, payload in self._stream_round(messages):
             if kind == "delta":
                 yield {"type": "delta", "text": payload}
             else:
-                first_calls = payload
+                first_calls = payload["calls"]
+                first_text = payload["text"]
 
         submit_call = next((c for c in first_calls if c["function"]["name"] == "submit_answer"), None)
         data_calls = [c for c in first_calls if c["function"]["name"] != "submit_answer"]
@@ -196,6 +200,9 @@ class AnalysisAgent:
         if submit_call is not None:
             # 场景 A：无需查数据，直接提交（summary 已在上面流式发出）
             answer = self._parse_args(submit_call)
+        elif not data_calls and first_text.strip():
+            # 场景 A'：模型没走工具、直接用文字回答（寒暄、闲聊常见），文字已流出，直接收口
+            answer = self._text_answer(first_text)
         else:
             # 场景 B：先执行工具取真实数据，再让模型基于数据作答
             if data_calls:
@@ -240,7 +247,9 @@ class AnalysisAgent:
                     streamed += payload
                     yield {"type": "delta", "text": payload}
                 else:
-                    second_calls = payload
+                    second_calls = payload["calls"]
+                    if payload["text"]:
+                        streamed = payload["text"]
 
             second_submit = next(
                 (c for c in second_calls if c["function"]["name"] == "submit_answer"), None
@@ -248,14 +257,8 @@ class AnalysisAgent:
             if second_submit is not None:
                 answer = self._parse_args(second_submit)
             else:
-                # 模型没按格式提交：用已流出的文字兜底，至少不丢内容
-                answer = {
-                    "summary": streamed.strip() or "本次未能生成结构化结果，请换一种问法重试。",
-                    "chart_config": {"chart_type": "line", "x_field": "year", "y_field": "yield", "title": "分析"},
-                    "labels": [],
-                    "values": [],
-                    "source": "AI 分析",
-                }
+                # 模型没按格式提交：用已经流出的文字兜底，至少不丢内容
+                answer = self._text_answer(streamed)
 
         computing = AgentStep(
             phase=StepPhase.COMPUTING,
@@ -288,12 +291,17 @@ class AnalysisAgent:
     ) -> AsyncIterator[tuple[str, Any]]:
         """跑一轮流式调用。
 
-        产出 ``("delta", 文本片段)`` 与 ``("calls", 完整工具调用列表)``。
-        只有 submit_answer 的参数里的 summary 会被当作可展示文本流出。
+        产出 ``("delta", 文本片段)`` 与 ``("round", {"calls": ..., "text": ...})``。
+
+        两条来源都要转发：
+        - 模型按规范通过 submit_answer 提交，从工具参数里增量抠出 summary；
+        - 模型没走工具、直接说话（寒暄、闲聊常见），把自由文本原样转出去，
+          否则用户会看到一片空白。
         """
         extractor = SummaryExtractor()
         submit_index: int | None = None
         calls: list[dict[str, Any]] = []
+        free_text = ""
 
         async for event in self._llm.chat_stream(messages, tools=self._tools.schemas()):
             event_type = event.get("type")
@@ -305,10 +313,15 @@ class AnalysisAgent:
                     piece = extractor.feed(str(event.get("chunk", "")))
                     if piece:
                         yield ("delta", piece)
+            elif event_type == "text":
+                piece = str(event.get("text", ""))
+                if piece:
+                    free_text += piece
+                    yield ("delta", piece)
             elif event_type == "done":
                 calls = event.get("tool_calls") or []
 
-        yield ("calls", calls)
+        yield ("round", {"calls": calls, "text": free_text})
 
     # ------------------------------------------------------------------
     # 消息组装
@@ -374,6 +387,31 @@ class AnalysisAgent:
             return {}
 
     @staticmethod
+    def _text_answer(text: str) -> dict[str, Any]:
+        """模型没有按格式提交时的兜底：用它的自由文本作为回答。
+
+        文本为空时给一句能照着做的引导，而不是一句技术味的「未生成结构化结果」。
+        """
+        summary = (text or "").strip()
+        if not summary:
+            summary = (
+                "这次没答上来。可以问得具体一点，例如「2016 到 2025 年产量趋势」"
+                "「稻瘟病怎么防治」「什么时候插秧」「稻谷补贴怎么申报」。"
+            )
+        return {
+            "summary": summary[:800],
+            "chart_config": {
+                "chart_type": "line",
+                "x_field": "year",
+                "y_field": "yield",
+                "title": "分析",
+            },
+            "labels": [],
+            "values": [],
+            "source": "AI 分析",
+        }
+
+    @staticmethod
     def _extract_submit_answer(final: dict[str, Any]) -> dict[str, Any]:
         """从最终回复中提取 submit_answer 工具的参数（含 content 兜底）。"""
         message = final["choices"][0]["message"]
@@ -381,11 +419,17 @@ class AnalysisAgent:
             if call["function"]["name"] == "submit_answer":
                 return AnalysisAgent._parse_args(call)
         content = (message.get("content") or "").strip()
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError:
-            # 模型未走 submit_answer 工具、返回了自由文本：作为纯文字答案兜底
-            return {"summary": content}
+        if content:
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            # 模型没走 submit_answer，直接说了话：当作纯文字回答
+            return AnalysisAgent._text_answer(content)
+        # 既没有工具调用也没有文字：给一句能照着做的引导
+        return AnalysisAgent._text_answer("")
 
     # ------------------------------------------------------------------
     # 校验与兜底
