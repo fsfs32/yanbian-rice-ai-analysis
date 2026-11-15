@@ -1,7 +1,11 @@
 // 错误归一化：定义四类可识别错误，统一提供面向用户的友好提示、是否可重试、是否可降级
 
-/** 后端明确指出「能力未就绪」时的降级判定（如没配 API Key） */
-const DEGRADABLE_HINT = /未配置|LLM_API_KEY|not configured|no api key/i;
+/**
+ * 后端明确指出「能力未就绪」时的降级判定。
+ * 覆盖两类：没配 Key（未配置 / LLM_API_KEY），以及 Key 无效被上游拒（401 / invalid api key）。
+ * 两种情况对用户来说都是「AI 暂时不可用」，降级到演示数据比甩一条报错更合适。
+ */
+const DEGRADABLE_HINT = /未配置|LLM_API_KEY|not configured|no api key|401|invalid.*key|authentication|unauthorized/i;
 
 /** HTTP 状态错误（非 2xx） */
 export class HttpError extends Error {
