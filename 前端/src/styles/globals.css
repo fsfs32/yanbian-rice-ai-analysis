@@ -11,6 +11,7 @@
   --color-canvas: #ffffff;
   --color-surface: #ffffff;
   --color-soft: #f7f7f8; /* 极浅灰，用于分隔区 */
+  --color-rail: #fbfbfc; /* 侧栏底色，比 canvas 略沉一档，用来界定三栏结构 */
 
   /* 文字：近黑 + 中性灰阶 */
   --color-text-primary: #111827;
@@ -34,6 +35,9 @@
   /* 边框 */
   --color-border: #e5e7eb;
   --color-border-strong: #d1d5db;
+
+  /* 语义色：仅用于错误提示，不参与视觉风格 */
+  --color-danger: #b91c1c;
 
   /* 圆角 */
   --radius-card: 12px;

@@ -29,14 +29,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       return (
         <div className="flex min-h-screen items-center justify-center bg-canvas p-6">
           <div className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-card">
-            <h1 className="text-[16px] font-semibold text-text-primary">页面暂时无法显示</h1>
-            <p className="mt-2 text-[14px] leading-[1.6] text-text-muted">
+            <h1 className="text-[18px] font-semibold text-text-primary">页面暂时无法显示</h1>
+            <p className="mt-2 text-[15px] leading-[1.7] text-text-muted">
               发生了预期之外的错误，请重试。
             </p>
             <button
               type="button"
               onClick={() => this.setState({ hasError: false })}
-              className="gradient-primary mt-4 rounded-md px-4 py-2 text-[13px] text-white transition-colors duration-150 hover:brightness-110"
+              className="gradient-primary mt-4 rounded-md px-4 py-2.5 text-[13.5px] text-white transition-colors duration-150 hover:brightness-110"
             >
               重试
             </button>

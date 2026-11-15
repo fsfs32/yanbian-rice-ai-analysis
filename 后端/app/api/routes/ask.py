@@ -49,35 +49,23 @@ async def ask(request: AskRequest, raw: Request) -> JSONResponse | StreamingResp
 
 
 async def _stream(request: AskRequest) -> AsyncIterator[str]:
-    """生成 SSE 事件流。"""
+    """生成 SSE 事件流：执行轨迹 → 正文增量 → 最终结构化结果。"""
     try:
-        result = await _agent.analyze(request)
+        async for event in _agent.analyze_stream(request):
+            event_type = event.get("type")
+            if event_type == "step":
+                step = event["step"]
+                yield f"data: {json.dumps({'step': step.model_dump()}, ensure_ascii=False)}\n\n"
+            elif event_type == "delta":
+                yield f"data: {json.dumps({'delta': event['text']}, ensure_ascii=False)}\n\n"
+            elif event_type == "result":
+                payload = event["response"].model_dump(exclude_none=True)
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
     except AppError as exc:
         # 业务错误（如未配置 API Key）：把具体原因透传给前端
         yield f"data: {json.dumps({'delta': exc.message}, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
-        return
     except Exception:  # noqa: BLE001
         # 流式场景无法再返回错误状态码，降级为一条文本提示
         yield f"data: {json.dumps({'delta': '抱歉，AI 分析暂时不可用，请稍后重试。'}, ensure_ascii=False)}\n\n"
-        yield "data: [DONE]\n\n"
-        return
 
-    # 1) 执行轨迹（驱动前端「AI 分析流程」五步状态条与可解释面板）
-    for step in result.steps:
-        event = {"step": step.model_dump()}
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
-
-    payload = result.response.model_dump(exclude_none=True)
-
-    # 2) 流式发送 summary 文本增量
-    summary: str = payload["summary"]
-    chunk = 24
-    for i in range(0, len(summary), chunk):
-        yield f"data: {json.dumps({'delta': summary[i : i + chunk]}, ensure_ascii=False)}\n\n"
-
-    # 3) 完整 AskResponse（前端据此落地图表）
-    yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
-
-    # 4) 结束标记
     yield "data: [DONE]\n\n"

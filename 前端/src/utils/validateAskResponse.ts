@@ -6,10 +6,12 @@ const CHART_TYPES: readonly ChartType[] = ['line', 'bar', 'scatter', 'combo'];
 const FIELDS: readonly Field[] = ['year', 'yield', 'revenue'];
 const TITLE_MAX = 80;
 const SUMMARY_MAX = 800;
+const FOLLOWUP_MAX = 40;
+const FOLLOWUP_COUNT = 3;
 
-/** 校验结果：成功时携带可渲染的图表数据与已截断的摘要 */
+/** 校验结果：成功时携带可渲染的图表数据、已截断的摘要与推荐追问 */
 export type ValidationResult =
-  | { ok: true; chart: ChartData; summary: string }
+  | { ok: true; chart: ChartData; summary: string; followups: string[] }
   | { ok: false; message: string };
 
 function isChartType(value: unknown): value is ChartType {
@@ -23,6 +25,20 @@ function isField(value: unknown): value is Field {
 /** 纯文本截断，避免超长字段撑破布局 */
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max)}…` : text;
+}
+
+/** 清洗追问：只保留字符串、去空、去重、限长、最多 3 条；异常值直接忽略 */
+function normalizeFollowups(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const cleaned: string[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const text = item.trim();
+    if (!text || cleaned.includes(text)) continue;
+    cleaned.push(truncate(text, FOLLOWUP_MAX));
+    if (cleaned.length >= FOLLOWUP_COUNT) break;
+  }
+  return cleaned;
 }
 
 export function validateAskResponse(payload: unknown): ValidationResult {
@@ -42,6 +58,7 @@ export function validateAskResponse(payload: unknown): ValidationResult {
     values2: unknown;
     summary: unknown;
     source: unknown;
+    followups: unknown;
   }>;
 
   const config = res.chart_config;
@@ -104,5 +121,6 @@ export function validateAskResponse(payload: unknown): ValidationResult {
       source,
     },
     summary: truncate(res.summary, SUMMARY_MAX),
+    followups: normalizeFollowups(res.followups),
   };
 }

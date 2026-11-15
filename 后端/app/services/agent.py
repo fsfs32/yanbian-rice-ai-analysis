@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, AsyncIterator
 
 from ..core.exceptions import ToolExecutionError
 from ..schemas import AgentStep, AskRequest, AskResponse, StepPhase
 from ..tools import ToolRegistry
 from .llm import LlmClient
+from .stream_extract import SummaryExtractor
 
 # ---------------------------------------------------------------------------
 # System Prompt
@@ -48,7 +49,18 @@ SYSTEM_PROMPT = """你是「延边大米长势与产量」数据分析专家。
 5. 最终答案必须通过 submit_answer 工具提交，不要输出自由文本；
 6. 图表类型选择：逐年对比用 line 或 bar，两者关系用 combo（双轴），分布关系用 scatter；
 7. chart_type 只能取 line/bar/scatter/combo，x_field/y_field/y2_field 只能取 year/yield/revenue；
-8. 数据来源 source 字段如实填写，无明确来源时写「AI 分析」。
+8. 数据来源 source 字段如实填写，无明确来源时写「AI 分析」；
+9. summary 必须分段：写成 2—4 段，段与段之间用真实换行符分隔；
+   第一段先给结论（一句话），后面每段一个要点（趋势 / 极值 / 波动 / 口径说明），
+   关键数字紧跟单位，不要写成一大段连续文字；
+10. followups 必须给 2—3 条「用户接下来会想问」的追问，每条不超过 30 字，
+    要具体、可直接点击提问，例如「2021 年为什么回落」「换成柱状图对比」「延边各县市产量排名」；
+    不要写「你还想了解什么」这类空话；
+11. 用户只是打招呼、寒暄或道谢（如「你好」「在吗」「谢谢」）时，
+    用一两句话回应，并简要说明你能做什么（产量趋势与统计、栽培与病虫害、补贴政策、CSV 数据分析），
+    不要顺着上一轮话题硬答，也不要输出图表（labels 与 values 传空数组）；
+12. 与延边水稻、农业完全无关的问题，简短说明能力边界并给出可以问的方向，
+    同样不输出图表、不编造数据。
 """
 
 # 校验失败后的纠错提示，引导模型输出合规结构
@@ -146,6 +158,157 @@ class AnalysisAgent:
             )
 
         return AnalysisResult(response=response, steps=steps)
+
+    # ------------------------------------------------------------------
+    # 流式编排
+    # ------------------------------------------------------------------
+    async def analyze_stream(self, request: AskRequest) -> AsyncIterator[dict[str, Any]]:
+        """流式编排：边生成边下发。
+
+        事件类型：
+        - ``{"type": "step", "step": AgentStep}``  执行轨迹
+        - ``{"type": "delta", "text": ...}``        正文增量（真实逐段生成）
+        - ``{"type": "result", "response": AskResponse, "steps": [...]}`` 最终结构化结果
+        """
+        messages = self._build_messages(request)
+        steps: list[AgentStep] = []
+
+        understanding = AgentStep(
+            phase=StepPhase.UNDERSTANDING,
+            title="理解问题",
+            detail=self._describe_intent(request),
+        )
+        steps.append(understanding)
+        yield {"type": "step", "step": understanding}
+
+        # ---- 第一轮：模型决定「直接答」还是「先查数据」 ----
+        first_calls: list[dict[str, Any]] = []
+        async for kind, payload in self._stream_round(messages):
+            if kind == "delta":
+                yield {"type": "delta", "text": payload}
+            else:
+                first_calls = payload
+
+        submit_call = next((c for c in first_calls if c["function"]["name"] == "submit_answer"), None)
+        data_calls = [c for c in first_calls if c["function"]["name"] != "submit_answer"]
+
+        answer: dict[str, Any]
+        if submit_call is not None:
+            # 场景 A：无需查数据，直接提交（summary 已在上面流式发出）
+            answer = self._parse_args(submit_call)
+        else:
+            # 场景 B：先执行工具取真实数据，再让模型基于数据作答
+            if data_calls:
+                messages.append(
+                    {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": c["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": c["function"]["name"],
+                                    "arguments": c["function"]["arguments"],
+                                },
+                            }
+                            for c in data_calls
+                        ],
+                    }
+                )
+                querying = AgentStep(
+                    phase=StepPhase.QUERYING,
+                    title="查询数据",
+                    detail=self._describe_calls(data_calls),
+                )
+                steps.append(querying)
+                yield {"type": "step", "step": querying}
+
+                for call in data_calls:
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": call["id"],
+                            "content": json.dumps(self._execute_call(call), ensure_ascii=False),
+                        }
+                    )
+
+            second_calls: list[dict[str, Any]] = []
+            streamed = ""
+            async for kind, payload in self._stream_round(messages):
+                if kind == "delta":
+                    streamed += payload
+                    yield {"type": "delta", "text": payload}
+                else:
+                    second_calls = payload
+
+            second_submit = next(
+                (c for c in second_calls if c["function"]["name"] == "submit_answer"), None
+            )
+            if second_submit is not None:
+                answer = self._parse_args(second_submit)
+            else:
+                # 模型没按格式提交：用已流出的文字兜底，至少不丢内容
+                answer = {
+                    "summary": streamed.strip() or "本次未能生成结构化结果，请换一种问法重试。",
+                    "chart_config": {"chart_type": "line", "x_field": "year", "y_field": "yield", "title": "分析"},
+                    "labels": [],
+                    "values": [],
+                    "source": "AI 分析",
+                }
+
+        computing = AgentStep(
+            phase=StepPhase.COMPUTING,
+            title="计算分析",
+            detail=(
+                "基于检索到的真实数据计算趋势与统计指标"
+                if data_calls
+                else "理解意图后组织并生成分析结论"
+            ),
+        )
+        steps.append(computing)
+        yield {"type": "step", "step": computing}
+
+        # 校验 + 纠错兜底（失败时会再发起一次非流式调用）
+        response = await self._validate_with_retry(messages, answer)
+
+        if response.labels:
+            rendering = AgentStep(
+                phase=StepPhase.RENDERING,
+                title="生成图表",
+                detail=f"选择「{response.chart_config.chart_type.value}」图表并组织可视化数据",
+            )
+            steps.append(rendering)
+            yield {"type": "step", "step": rendering}
+
+        yield {"type": "result", "response": response, "steps": steps}
+
+    async def _stream_round(
+        self, messages: list[dict[str, Any]]
+    ) -> AsyncIterator[tuple[str, Any]]:
+        """跑一轮流式调用。
+
+        产出 ``("delta", 文本片段)`` 与 ``("calls", 完整工具调用列表)``。
+        只有 submit_answer 的参数里的 summary 会被当作可展示文本流出。
+        """
+        extractor = SummaryExtractor()
+        submit_index: int | None = None
+        calls: list[dict[str, Any]] = []
+
+        async for event in self._llm.chat_stream(messages, tools=self._tools.schemas()):
+            event_type = event.get("type")
+            if event_type == "tool_start":
+                if event.get("name") == "submit_answer" and submit_index is None:
+                    submit_index = int(event["index"])
+            elif event_type == "tool_args":
+                if submit_index is not None and int(event.get("index", -1)) == submit_index:
+                    piece = extractor.feed(str(event.get("chunk", "")))
+                    if piece:
+                        yield ("delta", piece)
+            elif event_type == "done":
+                calls = event.get("tool_calls") or []
+
+        yield ("calls", calls)
 
     # ------------------------------------------------------------------
     # 消息组装

@@ -101,6 +101,24 @@ class AskResponse(BaseModel):
     values2: list[float] | None = PydanticField(default=None, description="组合图第二序列，须与 values 等长")
     summary: str = PydanticField(..., max_length=800)
     source: str | None = PydanticField(default=None, description="数据来源，展示于图表底部")
+    followups: list[str] = PydanticField(
+        default_factory=list,
+        description="推荐追问（最多 3 条），前端渲染成可点击的继续提问入口",
+    )
+
+    @model_validator(mode="after")
+    def _normalize_followups(self) -> "AskResponse":
+        """清洗追问：去空、去重、限长、最多 3 条。
+
+        不在这里做长度强校验 —— 模型多给几条不该让整次回答失败。
+        """
+        cleaned: list[str] = []
+        for item in self.followups:
+            text = str(item).strip()
+            if text and text not in cleaned:
+                cleaned.append(text[:40])
+        self.followups = cleaned[:3]
+        return self
 
     @model_validator(mode="after")
     def _validate_series(self) -> "AskResponse":
@@ -133,7 +151,6 @@ class AskResponse(BaseModel):
             summary=summary,
             source=source,
         )
-
 
 # ---------------------------------------------------------------------------
 # SSE 事件

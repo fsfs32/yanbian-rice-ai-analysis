@@ -6,18 +6,22 @@ import ChartCard from './ChartCard';
 import KpiCard from './KpiCard';
 import DataTable from './DataTable';
 import ReasoningSteps from './ReasoningSteps';
+import CopyButton from './CopyButton';
+import FollowupList from './FollowupList';
 
 interface MessageBubbleProps {
   message: ChatMessage;
+  /** 点击推荐追问时继续提问 */
+  onFollowup?: (question: string) => void;
 }
 
 /** AI 身份标识：黑白稻穗图标 */
 function AiBadge() {
   return (
-    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary">
       <svg
-        width="16"
-        height="16"
+        width="17"
+        height="17"
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
@@ -37,11 +41,11 @@ function AiBadge() {
   );
 }
 
-const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
+const MessageBubble = memo(function MessageBubble({ message, onFollowup }: MessageBubbleProps) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-user-bubble px-4 py-2.5 text-[14px] leading-[1.7] text-user-text">
+        <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-user-bubble px-4.5 py-3 text-[15.5px] leading-[1.75] text-user-text">
           {message.content}
         </div>
       </div>
@@ -62,7 +66,7 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
 
         {/* 结论文字 */}
         {message.content && (
-          <p className="whitespace-pre-wrap text-[15px] leading-[1.8] text-text-primary">
+          <p className="whitespace-pre-wrap text-[16.5px] leading-[1.85] text-text-primary">
             {message.content}
           </p>
         )}
@@ -82,7 +86,7 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
 
         {/* KPI 指标（有图表数据时）：内置数据用产量口径，上传 CSV 用通用统计 */}
         {kpi && (
-          <div className="mt-3 grid grid-cols-3 gap-2">
+          <div className="mt-4 grid grid-cols-3 gap-2.5">
             {isCsv ? (
               <>
                 <KpiCard label="数据合计" labelEn="Total" value={formatNumber(kpi.total)} />
@@ -101,14 +105,14 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
 
         {/* 图表 */}
         {message.chart && (
-          <div className="mt-3">
+          <div className="mt-4">
             <ChartCard data={message.chart} />
           </div>
         )}
 
         {/* 表格预览（上传数据） */}
         {message.table && (
-          <div className="mt-3 rounded-lg border border-border bg-surface p-3">
+          <div className="mt-4 rounded-xl border border-border bg-surface p-4">
             <DataTable
               headers={message.table.headers}
               rows={message.table.rows}
@@ -119,18 +123,28 @@ const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProp
         )}
 
         {/* 数据来源与演示标注 */}
-        <div className="mt-2 flex items-center gap-2">
+        <div className="mt-2.5 flex items-center gap-2">
           {message.chart?.source && (
-            <p className="text-[11px] text-text-faint">数据来源 · {message.chart.source}</p>
+            <p className="text-[12px] text-text-faint">数据来源 · {message.chart.source}</p>
           )}
           {message.isDemo && (
-            <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
+            <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] text-accent">
               演示数据
+            </span>
+          )}
+          {message.content && (
+            <span className="ml-auto">
+              <CopyButton text={message.content} />
             </span>
           )}
         </div>
         {message.kind === 'normal' && message.role === 'assistant' && message.content && (
-          <p className="mt-1 text-[10.5px] text-text-faint">AI 生成内容仅供参考</p>
+          <p className="mt-1.5 text-[11.5px] text-text-faint">AI 生成内容仅供参考</p>
+        )}
+
+        {/* 推荐追问：点击即继续提问 */}
+        {message.followups && message.followups.length > 0 && onFollowup && (
+          <FollowupList items={message.followups} onPick={onFollowup} />
         )}
       </div>
     </div>

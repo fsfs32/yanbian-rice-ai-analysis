@@ -1,44 +1,77 @@
-// 顶栏（展示组件）：极简问答产品导航，品牌标识（支持图片位）+ 新对话按钮
+// 顶栏（展示组件）：极简问答产品导航，品牌标识（支持图片位）+ 运行状态角标 + 新对话按钮
 // 图片位：public/logo.png（建议 96×96 透明底、黑白色麦穗图），未放置时回退为黑白色麦穗 SVG 标识
-import { useState } from 'react';
+// 状态角标：显示当前模型与上次响应耗时，让「真调了大模型」这件事看得见
+import { useEffect, useState } from 'react';
 import { Plus, Wheat } from 'lucide-react';
+import { fetchModelName } from '../api/health';
 
 interface TopBarProps {
   onNewChat: () => void;
+  /** 最近一次问答耗时（毫秒）；null 表示本轮还没问过 */
+  latencyMs?: number | null;
 }
 
-export default function TopBar({ onNewChat }: TopBarProps) {
+export default function TopBar({ onNewChat, latencyMs }: TopBarProps) {
   const [logoOk, setLogoOk] = useState(true);
+  const [model, setModel] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchModelName().then((name) => {
+      if (alive) setModel(name);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const latencyText =
+    typeof latencyMs === 'number' && latencyMs > 0 ? `${(latencyMs / 1000).toFixed(1)}s` : null;
 
   return (
-    <header className="relative z-30 flex h-14 shrink-0 items-center justify-between border-b border-border bg-canvas px-4 md:px-6">
-      <div className="flex items-center gap-2.5">
+    <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
+      <div className="flex items-center gap-3">
         {logoOk ? (
           <img
             src="/logo.png"
             alt="延边大米长势与产量分析"
-            className="h-8 w-8 rounded-md object-cover"
+            className="h-9 w-9 rounded-lg object-cover"
             onError={() => setLogoOk(false)}
           />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-soft text-text-primary">
-            <Wheat size={18} aria-hidden="true" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-soft text-text-primary">
+            <Wheat size={19} aria-hidden="true" />
           </span>
         )}
-        <span className="text-[15px] font-semibold tracking-tight text-text-primary">
+        <span className="text-[16.5px] font-semibold tracking-tight text-text-primary">
           延边大米 · 长势与产量
         </span>
-        <span className="hidden text-[12.5px] text-text-muted sm:inline">AI 分析</span>
+        <span className="hidden text-[13px] text-text-muted sm:inline">AI 分析</span>
       </div>
 
-      <button
-        type="button"
-        onClick={onNewChat}
-        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-text-muted transition-colors duration-150 hover:bg-soft hover:text-text-primary"
-      >
-        <Plus size={15} aria-hidden="true" />
-        新对话
-      </button>
+      <div className="flex items-center gap-3">
+        {/* 运行状态角标：模型名 + 上次响应耗时 */}
+        {(model || latencyText) && (
+          <span
+            className="hidden items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-text-faint md:inline-flex"
+            title="当前模型与最近一次响应耗时"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
+            {model}
+            {model && latencyText && <span className="text-border-strong">·</span>}
+            {latencyText}
+          </span>
+        )}
+
+        <button
+          type="button"
+          onClick={onNewChat}
+          className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[13.5px] text-text-muted transition-colors duration-150 hover:bg-soft hover:text-text-primary"
+        >
+          <Plus size={16} aria-hidden="true" />
+          新对话
+        </button>
+      </div>
     </header>
   );
 }

@@ -61,7 +61,7 @@ export default function StatusBar({ status, steps }: StatusBarProps) {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <span className="flex items-center gap-2 text-[11.5px] text-text-muted" aria-live="polite">
+        <span className="flex items-center gap-2 text-[12.5px] text-text-muted" aria-live="polite">
           {loading ? (
             <span
               className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent"
@@ -72,16 +72,36 @@ export default function StatusBar({ status, steps }: StatusBarProps) {
           )}
           {text}
         </span>
+
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-expanded={expanded}
           aria-label="查看分析流程"
-          className="flex items-center gap-1 text-[11px] text-text-faint transition-colors duration-150 hover:text-primary"
+          className="group flex items-center gap-2.5 text-[12px] text-text-faint transition-colors duration-150 hover:text-primary"
         >
+          {/* 五段进度条：不展开也能看见 Agent 走到哪一步 */}
+          <span className="flex items-center gap-1" aria-hidden="true">
+            {STEPS.map((step, index) => {
+              const stepDone = activeIndex > index || status === 'done';
+              const stepActive = activeIndex === index && status !== 'done';
+              return (
+                <span
+                  key={step.key}
+                  className={`h-1 rounded-full transition-all duration-300 ${
+                    stepDone
+                      ? 'w-5 bg-primary'
+                      : stepActive
+                        ? 'w-5 bg-accent'
+                        : 'w-3 bg-border'
+                  }`}
+                />
+              );
+            })}
+          </span>
           AI 分析流程
           <span
-            className={`text-[9px] transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+            className={`text-[10px] transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
             aria-hidden="true"
           >
             ▲
@@ -90,14 +110,14 @@ export default function StatusBar({ status, steps }: StatusBarProps) {
       </div>
 
       {expanded && (
-        <div className="mt-3 flex flex-col gap-2.5 rounded-sm border border-border bg-canvas p-3.5">
+        <div className="mt-3 flex flex-col gap-3 rounded-lg border border-border bg-canvas p-4">
           {STEPS.map((step, index) => {
             const done = activeIndex > index || (status === 'done' && index === 4);
             const active = activeIndex === index && status !== 'done';
             return (
-              <div key={step.key} className="flex items-center gap-2.5">
+              <div key={step.key} className="flex items-center gap-3">
                 <span
-                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[9px] ${
+                  className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] ${
                     done
                       ? 'border-primary bg-primary text-canvas'
                       : active
@@ -108,13 +128,13 @@ export default function StatusBar({ status, steps }: StatusBarProps) {
                 >
                   {done ? '✓' : index + 1}
                 </span>
-                <span className={`text-[12px] ${done || active ? 'text-text-body' : 'text-text-faint'}`}>
+                <span className={`text-[13px] ${done || active ? 'text-text-body' : 'text-text-faint'}`}>
                   {step.zh}
                 </span>
-                <span className={`text-[10.5px] ${done || active ? 'text-text-muted' : 'text-text-faint'}`}>
+                <span className={`text-[11.5px] ${done || active ? 'text-text-muted' : 'text-text-faint'}`}>
                   {getDetail(step.key) || step.detail}
                 </span>
-                <span className="ml-auto text-[9px] uppercase tracking-[0.1em] text-text-faint">
+                <span className="ml-auto text-[10px] uppercase tracking-[0.1em] text-text-faint">
                   {step.en}
                 </span>
               </div>

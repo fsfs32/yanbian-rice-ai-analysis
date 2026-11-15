@@ -25,3 +25,10 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# 本地 AI 工具的工作记录，不入库也不随交付包发出
+.workbuddy/
+
+# 本地过程截图
+.screenshots/
+

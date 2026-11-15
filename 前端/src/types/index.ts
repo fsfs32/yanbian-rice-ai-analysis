@@ -49,6 +49,23 @@ export interface CsvAttachment {
   rows: string[][];
 }
 
+/**
+ * 当前数据集摘要：右侧「数据速览」据此渲染统计。
+ * 未上传文件时为 null（回退到内置水稻数据），上传后即为该 CSV 的数值列序列。
+ */
+export interface CsvDataset {
+  fileName: string;
+  rowCount: number;
+  columnCount: number;
+  /** 数值列名（作为指标名展示，如「亩产」） */
+  metricLabel: string;
+  /** X 轴标签（CSV 首列，通常为年份） */
+  labels: (string | number)[];
+  values: number[];
+  /** 是否识别到可统计的数值列 */
+  plottable: boolean;
+}
+
 /** Agent 推理步骤：后端通过 SSE step 事件下发，反映 AI 真实执行轨迹 */
 export type StepPhase = 'understanding' | 'querying' | 'computing' | 'rendering';
 
@@ -68,6 +85,8 @@ export interface ChatMessage {
   table?: CsvPreview;
   /** AI 推理步骤（可解释分析），后端未下发时为空 */
   steps?: AgentStep[];
+  /** 推荐追问（最多 3 条），点击即可继续提问 */
+  followups?: string[];
   isDemo?: boolean;
   pending?: boolean;
 }

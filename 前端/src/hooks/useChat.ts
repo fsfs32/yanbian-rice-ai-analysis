@@ -2,7 +2,7 @@
 // 数据流：组件 → useChat → askApi → 后端 → useChat → 组件 props
 
 import { useCallback, useReducer, useRef, useState } from 'react';
-import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, HistoryEntry } from '../types';
+import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry } from '../types';
 import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
@@ -33,9 +33,10 @@ type Action =
   | { type: 'STATUS'; status: ChatStatus }
   | { type: 'STEP'; id: string; step: AgentStep }
   | { type: 'APPEND'; id: string; text: string }
-  | { type: 'RESULT'; id: string; chart: ChartData; isDemo: boolean; table?: CsvPreview }
+  | { type: 'RESULT'; id: string; chart: ChartData; isDemo: boolean; table?: CsvPreview; followups?: string[]; summary?: string }
   | { type: 'INGEST_START'; id: string }
   | { type: 'INGEST_RESULT'; id: string; content: string; chart?: ChartData; table?: CsvPreview }
+  | { type: 'TEXT_RESULT'; id: string; content: string; followups?: string[] }
   | { type: 'ERROR'; id: string; message: string }
   | { type: 'STOP' }
   | { type: 'RESET' };
@@ -86,7 +87,16 @@ function reducer(state: ChatState, action: Action): ChatState {
         isLoading: false,
         messages: state.messages.map((m) =>
           m.id === action.id
-            ? { ...m, chart: action.chart, isDemo: action.isDemo, table: action.table, pending: false }
+            ? {
+                ...m,
+                chart: action.chart,
+                isDemo: action.isDemo,
+                table: action.table,
+                followups: action.followups,
+                // 流式期间已边生成边显示；这里用最终全文对齐，避免分片与终稿不一致
+                ...(action.summary ? { content: action.summary } : {}),
+                pending: false,
+              }
             : m,
         ),
       };
@@ -108,6 +118,24 @@ function reducer(state: ChatState, action: Action): ChatState {
         messages: state.messages.map((m) =>
           m.id === action.id
             ? { ...m, content: action.content, chart: action.chart, table: action.table, pending: false }
+            : m,
+        ),
+      };
+    case 'TEXT_RESULT':
+      // 纯文字回答（知识问答、寒暄等）：当作正常消息渲染，不套错误卡、不显示「重试」
+      return {
+        ...state,
+        status: 'done',
+        isLoading: false,
+        messages: state.messages.map((m) =>
+          m.id === action.id
+            ? {
+                ...m,
+                kind: 'normal',
+                content: action.content,
+                followups: action.followups,
+                pending: false,
+              }
             : m,
         ),
       };
@@ -165,7 +193,8 @@ async function requestWithRetry(
         if (isStale()) return { kind: 'error', message: normalized.userMessage };
         continue;
       }
-      if (normalized.retryable) {
+      // 可重试的重试用尽、或后端能力未就绪（如没配密钥）时，降级为本地演示数据
+      if (normalized.retryable || normalized.degradable) {
         return { kind: 'ok', data: getMockResponse(question), isDemo: true };
       }
       return { kind: 'error', message: normalized.userMessage };
@@ -193,6 +222,11 @@ export interface UseChatResult {
   status: ChatStatus;
   isLoading: boolean;
   history: HistoryEntry[];
+  /** 当前数据集：null 表示内置水稻数据，非空表示用户上传的 CSV */
+  dataset: CsvDataset | null;
+  /** 最近一次问答从发出到出图的耗时（毫秒），用于顶栏状态角标 */
+  latencyMs: number | null;
+  clearDataset: () => void;
   sendQuestion: (question: string) => void;
   ingestCsv: (input: { fileName: string; headers: string[]; rows: string[][] }) => void;
   stop: () => void;
@@ -203,6 +237,8 @@ export interface UseChatResult {
 export function useChat(): UseChatResult {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [dataset, setDataset] = useState<CsvDataset | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
   const runIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const stoppedRef = useRef(false);
@@ -213,6 +249,7 @@ export function useChat(): UseChatResult {
       const question = rawQuestion.trim();
       if (!question) return;
 
+      const startedAt = Date.now();
       const runId = ++runIdRef.current;
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -279,11 +316,16 @@ export function useChat(): UseChatResult {
       const append = (id: string, text: string) => dispatch({ type: 'APPEND', id, text });
       const shouldStop = () => isStale() || isStopped();
 
-      // 边界提示（labels/values 为空）：无图表，仅展示说明文字
+      // 纯文字回答（知识问答、寒暄等）：labels/values 为空，不画图，按正常消息展示
       if (validation.chart.labels.length === 0) {
         if (!streamed) await typewrite(aiMsgId, validation.summary, shouldStop, append);
         if (isStale() || isStopped()) return;
-        dispatch({ type: 'ERROR', id: aiMsgId, message: validation.summary });
+        dispatch({
+          type: 'TEXT_RESULT',
+          id: aiMsgId,
+          content: validation.summary,
+          followups: validation.followups,
+        });
         return;
       }
 
@@ -298,7 +340,15 @@ export function useChat(): UseChatResult {
       dispatch({ type: 'STATUS', status: 'rendering' });
       await sleep(260);
       if (isStale() || isStopped()) return;
-      dispatch({ type: 'RESULT', id: aiMsgId, chart: validation.chart, isDemo: outcome.isDemo });
+      setLatencyMs(Date.now() - startedAt);
+      dispatch({
+        type: 'RESULT',
+        id: aiMsgId,
+        chart: validation.chart,
+        isDemo: outcome.isDemo,
+        followups: validation.followups,
+        summary: validation.summary,
+      });
     },
     [state.messages],
   );
@@ -319,6 +369,17 @@ export function useChat(): UseChatResult {
       // 本地画像：作为后端不可用 / 未返回有效图表时的兜底
       const insight = analyzeCsv(input.headers, input.rows);
       const stats = insight.series ? summarizeSeries(insight.series.values) : null;
+
+      // 右侧「数据速览」切到本次上传的数据集；再次上传会整体替换
+      setDataset({
+        fileName: input.fileName,
+        rowCount: input.rows.length,
+        columnCount: input.headers.length,
+        metricLabel: insight.series?.valueLabel ?? '',
+        labels: insight.series?.labels ?? [],
+        values: insight.series?.values ?? [],
+        plottable: Boolean(insight.series),
+      });
 
       let fallbackContent: string;
       let fallbackChart: ChartData | undefined;
@@ -409,7 +470,15 @@ export function useChat(): UseChatResult {
         dispatch({ type: 'STATUS', status: 'rendering' });
         await sleep(260);
         if (isStale() || isStopped()) return;
-        dispatch({ type: 'RESULT', id: aiMsgId, chart: validation.chart, isDemo: false, table });
+        dispatch({
+          type: 'RESULT',
+          id: aiMsgId,
+          chart: validation.chart,
+          isDemo: false,
+          table,
+          followups: validation.followups,
+          summary: validation.summary,
+        });
       } catch {
         // 后端不可用（网络 / 超时）时降级为本地端侧画像
         if (isStale() || isStopped()) return;
@@ -424,11 +493,15 @@ export function useChat(): UseChatResult {
     if (lastUser) void sendQuestion(lastUser.content);
   }, [state.messages, sendQuestion]);
 
+  /** 恢复内置数据集：右侧「数据速览」回到延边水稻数据 */
+  const clearDataset = useCallback(() => setDataset(null), []);
+
   const reset = useCallback(() => {
     runIdRef.current += 1;
     stoppedRef.current = true;
     abortRef.current?.abort();
     sessionIdRef.current = genId();
+    setDataset(null);
     dispatch({ type: 'RESET' });
   }, []);
 
@@ -437,6 +510,9 @@ export function useChat(): UseChatResult {
     status: state.status,
     isLoading: state.isLoading,
     history,
+    dataset,
+    latencyMs,
+    clearDataset,
     sendQuestion,
     ingestCsv,
     stop,

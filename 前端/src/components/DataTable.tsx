@@ -14,14 +14,14 @@ export default function DataTable({ headers, rows, rowCount, columnCount }: Data
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left text-[12.5px]">
+        <table className="w-full border-collapse text-left text-[13px]">
           <thead>
             <tr className="border-b border-border">
               {headers.map((header, index) => (
                 <th
                   key={`${header}-${index}`}
                   scope="col"
-                  className="whitespace-nowrap px-3 py-2.5 font-medium text-text-body"
+                  className="whitespace-nowrap px-3.5 py-3 font-medium text-text-body"
                 >
                   {header}
                 </th>
@@ -34,7 +34,7 @@ export default function DataTable({ headers, rows, rowCount, columnCount }: Data
                 {headers.map((_, colIndex) => (
                   <td
                     key={colIndex}
-                    className="whitespace-nowrap px-3 py-2 tabular-nums text-text-muted"
+                    className="whitespace-nowrap px-3.5 py-2.5 tabular-nums text-text-muted"
                   >
                     {row[colIndex] ?? ''}
                   </td>
@@ -45,7 +45,7 @@ export default function DataTable({ headers, rows, rowCount, columnCount }: Data
         </table>
       </div>
 
-      <p className="mt-3 text-[11.5px] text-text-faint">
+      <p className="mt-3.5 text-[12px] text-text-faint">
         共 {rowCount} 行 · {columnCount} 列
         {rowCount > PREVIEW_ROWS && ` · 仅预览前 ${PREVIEW_ROWS} 行`}
       </p>

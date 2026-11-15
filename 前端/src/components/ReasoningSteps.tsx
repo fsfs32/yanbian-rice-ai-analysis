@@ -1,5 +1,5 @@
-// AI 推理过程（展示组件）：展示后端 SSE 下发的真实 Agent 执行轨迹，可折叠
-// 默认收起，避免抢占结论；点击展开后按步骤展示「阶段 → 具体做了什么」
+// AI 推理过程（展示组件）：展示后端 SSE 下发的真实 Agent 执行轨迹
+// 默认展开 —— 这是本作品「可解释 AI」的核心卖点，折叠起来就等于没做
 import { useState } from 'react';
 import type { AgentStep } from '../types';
 
@@ -8,25 +8,21 @@ interface ReasoningStepsProps {
 }
 
 export default function ReasoningSteps({ steps }: ReasoningStepsProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
 
   return (
-    <div className="mt-2 rounded-lg border border-border bg-surface">
+    <div className="mt-2.5 rounded-xl border border-border bg-soft/60">
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[11.5px] text-text-muted transition-colors duration-150 hover:text-primary"
+        className="flex w-full items-center gap-2 px-3.5 py-2.5 text-left text-[12.5px] text-text-muted transition-colors duration-150 hover:text-primary"
       >
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+        <span>AI 分析过程</span>
+        <span className="text-[11.5px] text-text-faint">{steps.length} 步</span>
         <span
-          className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[9px] text-accent"
-          aria-hidden="true"
-        >
-          析
-        </span>
-        <span>分析过程</span>
-        <span
-          className={`ml-auto text-[9px] text-text-faint transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+          className={`ml-auto text-[10px] text-text-faint transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
           aria-hidden="true"
         >
           ▼
@@ -34,18 +30,17 @@ export default function ReasoningSteps({ steps }: ReasoningStepsProps) {
       </button>
 
       {open && (
-        <ol className="flex flex-col gap-2 border-t border-border px-3 py-2.5">
+        <ol className="relative ml-[19px] flex flex-col gap-2.5 border-l border-border pb-3 pl-4 pr-3.5 pt-1">
           {steps.map((step, index) => (
-            <li key={`${step.phase}-${index}`} className="flex items-start gap-2">
+            <li key={`${step.phase}-${index}`} className="relative flex items-start gap-2">
               <span
-                className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[9px] text-accent"
+                className="absolute -left-[21px] top-1.5 flex h-2 w-2 items-center justify-center rounded-full bg-border-strong"
                 aria-hidden="true"
-              >
-                {index + 1}
-              </span>
-              <p className="text-[11.5px] leading-relaxed text-text-body">
-                <span className="text-text-muted">{step.title} · </span>
-                {step.detail}
+              />
+              <p className="text-[12.5px] leading-[1.7] text-text-body">
+                <span className="font-medium text-text-muted">{step.title}</span>
+                <span className="mx-1.5 text-text-faint">·</span>
+                <span className="text-text-muted">{step.detail}</span>
               </p>
             </li>
           ))}

@@ -176,6 +176,11 @@ def build_tool_registry(
                     "values2": {"type": "array", "items": {"type": "number"}},
                     "summary": {"type": "string"},
                     "source": {"type": "string"},
+                    "followups": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "推荐追问：2—3 条，每条不超过 30 字，应是用户接着想问的问题",
+                    },
                 },
                 "required": ["chart_config", "labels", "values", "summary"],
             },

@@ -28,6 +28,23 @@ async function parseJsonResponse(response: Response): Promise<AskResponse> {
 }
 
 /**
+ * 读取非 2xx 响应体里的业务错误信息。
+ * 仅用于判断「能否降级到演示数据」（例如后端没配密钥），不会展示给用户。
+ */
+async function readErrorDetail(response: Response): Promise<string | undefined> {
+  try {
+    const body: unknown = await response.json();
+    if (typeof body !== 'object' || body === null) return undefined;
+    const error = (body as { error?: unknown }).error;
+    if (typeof error !== 'object' || error === null) return undefined;
+    const message = (error as { message?: unknown }).message;
+    return typeof message === 'string' ? message : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * 向后端提问，返回标准 AskResponse。
  * 内部使用 AbortController 设置 15s 超时，并检查 response.ok。
  */
@@ -49,7 +66,7 @@ export async function askQuestion(question: string, signal?: AbortSignal): Promi
       throw new NetworkError();
     }
 
-    if (!response.ok) throw new HttpError(response.status);
+    if (!response.ok) throw new HttpError(response.status, await readErrorDetail(response));
     return await parseJsonResponse(response);
   } finally {
     clearTimeout(timeoutId);
@@ -101,7 +118,7 @@ export async function streamQuestion(
     // 已收到响应头：流式输出不再受 TIMEOUT_MS 限制，避免长推理 + 全量流式输出被中途掐断
     clearTimeout(timeoutId);
 
-    if (!response.ok) throw new HttpError(response.status);
+    if (!response.ok) throw new HttpError(response.status, await readErrorDetail(response));
 
     const contentType = response.headers.get('content-type') ?? '';
     if (contentType.includes('text/event-stream') && response.body) {

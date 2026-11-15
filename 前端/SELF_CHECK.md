@@ -12,8 +12,8 @@
 
 ## 运行时安全
 
-- [ ] `validateAskResponse` 做白名单校验（chart_type 限 line/bar/scatter，x/y_field 限 year/yield）
-- [ ] title/summary 纯文本渲染并截断（title 80 / summary 300）
+- [ ] `validateAskResponse` 做白名单校验（chart_type 限 line/bar/scatter/combo，x/y_field 限 year/yield/revenue）
+- [ ] title/summary 纯文本渲染并截断（title 80 / summary 800）
 - [ ] 禁止 `dangerouslySetInnerHTML` 渲染 AI 返回内容
 - [ ] 错误不向用户暴露堆栈 / 原始响应 / Key
 - [ ] Mock 降级时界面明确标注「演示数据」

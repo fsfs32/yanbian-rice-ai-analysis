@@ -61,5 +61,8 @@ app.include_router(ask.router)
 
 @app.get("/health", tags=["system"])
 async def health() -> dict[str, str]:
-    """健康检查，供部署探针与联调自检使用。"""
-    return {"status": "ok"}
+    """健康检查，供部署探针与联调自检使用。
+
+    顺带暴露当前使用的模型名，前端顶栏据此显示运行状态角标。
+    """
+    return {"status": "ok", "model": settings.llm_model}
