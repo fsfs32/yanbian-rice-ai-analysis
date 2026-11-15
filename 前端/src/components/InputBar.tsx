@@ -3,6 +3,7 @@ import { useRef, useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { ArrowUp, Paperclip, Square } from 'lucide-react';
 import { readCsvFile } from '../utils/readCsvFile';
 import QuestionMenu from './QuestionMenu';
+import { useI18n } from '../i18n';
 import MicButton from './MicButton';
 import type { SendQuestion } from '../types';
 
@@ -14,6 +15,7 @@ interface InputBarProps {
 }
 
 export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputBarProps) {
+  const { t } = useI18n();
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
@@ -59,7 +61,7 @@ export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputB
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         aria-label="输入关于延边水稻的问题"
-        placeholder="问一个关于产量的问题，或上传 CSV 让我分析…"
+        placeholder={t('input.placeholder')}
         className="max-h-44 w-full resize-none overflow-hidden border-none bg-transparent px-4.5 pb-1.5 pt-4 text-[16.5px] leading-[1.65] text-text-primary placeholder:text-text-faint focus:outline-none"
       />
       <div className="flex items-center justify-between px-3 pb-3">

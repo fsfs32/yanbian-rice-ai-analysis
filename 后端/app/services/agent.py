@@ -27,6 +27,19 @@ from .stream_extract import SummaryExtractor
 # ---------------------------------------------------------------------------
 # System Prompt
 # ---------------------------------------------------------------------------
+# 回答语言指令：追加在系统提示词末尾，只约束输出语言，不影响数据口径
+LANGUAGE_INSTRUCTIONS: dict[str, str] = {
+    "zh": "",
+    "en": (
+        "\n\nImportant: reply in English. Keep the numbers, dates and source names exactly as "
+        "returned by the tools, and translate only your own explanations."
+    ),
+    "ko": (
+        "\n\n중요: 반드시 한국어(조선어)로 답하십시오. 도구가 돌려준 숫자·날짜·출처 이름은 "
+        "원문 그대로 두고, 설명 부분만 번역하십시오."
+    ),
+}
+
 SYSTEM_PROMPT = """你是「延边大米长势与产量」数据分析专家。
 
 你的职责是：基于真实数据回答用户关于延边州水稻（稻谷）产量、产值、长势趋势的问题，
@@ -376,7 +389,10 @@ class AnalysisAgent:
     # 消息组装
     # ------------------------------------------------------------------
     def _build_messages(self, request: AskRequest) -> list[dict[str, Any]]:
-        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
+        instruction = LANGUAGE_INSTRUCTIONS.get(request.language, "")
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": SYSTEM_PROMPT + instruction}
+        ]
         for turn in request.history:
             messages.append({"role": turn.role, "content": turn.content})
 

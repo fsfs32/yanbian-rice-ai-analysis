@@ -2,6 +2,7 @@
 // 数据流：组件 → useChat → askApi → 后端 → useChat → 组件 props
 
 import { useCallback, useReducer, useRef, useState } from 'react';
+import { useI18n } from '../i18n';
 import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry, UsageInfo } from '../types';
 import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
@@ -179,11 +180,12 @@ async function requestWithRetry(
   onDelta: (text: string) => void,
   onStep: (step: AgentStep) => void,
   context: { history: ChatTurn[]; sessionId: string },
+  lang: string,
 ): Promise<RequestOutcome> {
   for (let attempt = 0; attempt <= 1; attempt++) {
     if (isStopped()) return { kind: 'aborted' };
     try {
-      const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep);
+      const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep, lang);
       return { kind: 'ok', data, isDemo: false };
     } catch (error) {
       if (isStopped()) return { kind: 'aborted' };
@@ -237,6 +239,7 @@ export interface UseChatResult {
 }
 
 export function useChat(): UseChatResult {
+  const { lang } = useI18n();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [dataset, setDataset] = useState<CsvDataset | null>(null);
@@ -301,6 +304,7 @@ export function useChat(): UseChatResult {
         onDelta,
         onStep,
         { history: turns, sessionId: sessionIdRef.current },
+        lang,
       );
       if (isStale() || outcome.kind === 'aborted') return;
 
@@ -354,7 +358,7 @@ export function useChat(): UseChatResult {
         summary: validation.summary,
       });
     },
-    [state.messages],
+    [state.messages, lang],
   );
 
   const stop = useCallback(() => {
@@ -455,7 +459,8 @@ export function useChat(): UseChatResult {
           { history: [], sessionId: sessionIdRef.current },
           csv,
           onStep,
-        );
+      lang,
+    );
 
         if (isStale() || isStopped()) return;
 
@@ -489,7 +494,7 @@ export function useChat(): UseChatResult {
         dispatch({ type: 'INGEST_RESULT', id: aiMsgId, content: fallbackContent, chart: fallbackChart, table });
       }
     },
-    [],
+    [lang],
   );
 
   const retry = useCallback(() => {

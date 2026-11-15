@@ -1,8 +1,10 @@
-// 顶栏（展示组件）：极简问答产品导航，品牌标识（支持图片位）+ 运行状态角标 + 新对话按钮
+// 顶栏（展示组件）：极简问答产品导航，品牌标识（支持图片位）+ 运行状态角标 + {t('app.newChat')}按钮
 // 图片位：public/logo.png（建议 96×96 透明底、黑白色麦穗图），未放置时回退为黑白色麦穗 SVG 标识
 // 状态角标：显示当前模型与上次响应耗时，让「真调了大模型」这件事看得见
 import { useEffect, useState } from 'react';
 import { Plus, Wheat } from 'lucide-react';
+import LanguageSwitch from './LanguageSwitch';
+import { useI18n } from '../i18n';
 import { fetchModelName } from '../api/health';
 
 interface TopBarProps {
@@ -14,6 +16,7 @@ interface TopBarProps {
 }
 
 export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
+  const { t } = useI18n();
   const [logoOk, setLogoOk] = useState(true);
   const [model, setModel] = useState<string | null>(null);
 
@@ -42,6 +45,7 @@ export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
       <div className="flex items-center gap-3">
+        <LanguageSwitch />
         {logoOk ? (
           <img
             src="/logo.png"
@@ -86,7 +90,7 @@ export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
           className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[13.5px] text-text-muted transition-colors duration-150 hover:bg-soft hover:text-text-primary"
         >
           <Plus size={16} aria-hidden="true" />
-          新对话
+          {t('app.newChat')}
         </button>
       </div>
     </header>

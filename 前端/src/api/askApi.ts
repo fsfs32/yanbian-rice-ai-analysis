@@ -48,7 +48,11 @@ async function readErrorDetail(response: Response): Promise<string | undefined> 
  * 向后端提问，返回标准 AskResponse。
  * 内部使用 AbortController 设置 15s 超时，并检查 response.ok。
  */
-export async function askQuestion(question: string, signal?: AbortSignal): Promise<AskResponse> {
+export async function askQuestion(
+  question: string,
+  signal?: AbortSignal,
+  language: string = 'zh',
+): Promise<AskResponse> {
   const { controller, cleanup } = buildController(signal);
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
@@ -58,7 +62,7 @@ export async function askQuestion(question: string, signal?: AbortSignal): Promi
       response = await fetch(`${API_BASE_URL}/api/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, language }),
         signal: controller.signal,
       });
     } catch {
@@ -92,6 +96,7 @@ export async function streamQuestion(
   context?: AskContext,
   csv?: CsvAttachment,
   onStep?: (step: AgentStep) => void,
+  language: string = 'zh',
 ): Promise<AskResponse> {
   const { controller, cleanup } = buildController(signal);
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -103,7 +108,7 @@ export async function streamQuestion(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream, application/json' },
         body: JSON.stringify({
-          question,
+          question, language,
           history: context?.history ?? [],
           session_id: context?.sessionId,
           ...(csv ? { csv } : {}),
