@@ -133,6 +133,29 @@ class UsageInfo(BaseModel):
     estimated_cost_cny: float | None = None
 
 
+class TranslateRequest(BaseModel):
+    """POST /api/translate 请求体。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str = PydanticField(..., min_length=1, max_length=2000, description="待翻译文本")
+    target: str = PydanticField(default="en", description="目标语言：zh / en / ko")
+
+    @field_validator("target")
+    @classmethod
+    def _normalize_target(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        return normalized if normalized in {"zh", "en", "ko"} else "en"
+
+
+class TranslateResponse(BaseModel):
+    """POST /api/translate 响应体。"""
+
+    text: str
+    target: str
+    translated: bool = True
+
+
 class AskResponse(BaseModel):
     """POST /api/ask 标准响应。"""
 

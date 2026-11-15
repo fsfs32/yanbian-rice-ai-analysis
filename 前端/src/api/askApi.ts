@@ -181,3 +181,19 @@ async function readSse(
   if (!lastPayload) throw new ParseError(deltaText.trim() || undefined);
   return lastPayload;
 }
+
+/** 把一段已生成的回答翻译成目标语言；失败时返回原文 */
+export async function translateText(text: string, target: string): Promise<string> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ text, target }),
+    });
+    if (!response.ok) return text;
+    const data = (await response.json()) as { text?: string; translated?: boolean };
+    return data.translated && data.text ? data.text : text;
+  } catch {
+    return text;
+  }
+}

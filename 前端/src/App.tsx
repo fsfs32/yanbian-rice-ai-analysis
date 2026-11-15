@@ -22,6 +22,7 @@ export default function App() {
     retry,
     reset,
     ingestCsv,
+    translateAll,
   } = useChat();
 
   return (
@@ -31,12 +32,11 @@ export default function App() {
           onNewChat={reset}
           latencyMs={latencyMs}
           usage={usage}
-          onLanguageChanged={() => {
-            // 切换语言时清空当前对话。
-            // 之前试过「自动用新语言重答最后一轮」，但那会形成请求循环
-            // （重答完成后又触发一次重答），日志里能连续看到五六次调用。
-            // 清空更干净：用户看到的是新语言的首屏，重新提问即可得到新语言的回答。
-            reset();
+          onLanguageChanged={(next) => {
+            // 切语言时把已有回答逐条翻译，而不是清空或重新作答：
+            // 清空会让用户白问一遍，重新作答会重新查数据、贵且慢；
+            // 翻译只需要一次纯文本调用，历史对话也就能跟着换语言。
+            void translateAll(next);
           }}
         />
         <div className="flex min-h-0 flex-1">

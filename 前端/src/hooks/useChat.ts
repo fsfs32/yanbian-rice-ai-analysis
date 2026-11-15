@@ -4,7 +4,7 @@
 import { useCallback, useReducer, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
 import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry, UsageInfo } from '../types';
-import { streamQuestion } from '../api/askApi';
+import { streamQuestion, translateText } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
 import { analyzeCsv, summarizeSeries } from '../utils/csvInsight';
@@ -39,6 +39,7 @@ type Action =
   | { type: 'INGEST_RESULT'; id: string; content: string; chart?: ChartData; table?: CsvPreview }
   | { type: 'TEXT_RESULT'; id: string; content: string; followups?: string[] }
   | { type: 'TRUNCATE_TO_LAST_USER' }
+  | { type: 'UPDATE_CONTENT'; id: string; content: string }
   | { type: 'ERROR'; id: string; message: string }
   | { type: 'STOP' }
   | { type: 'RESET' };
@@ -123,6 +124,14 @@ function reducer(state: ChatState, action: Action): ChatState {
             : m,
         ),
       };
+    case 'UPDATE_CONTENT':
+      return {
+        ...state,
+        messages: state.messages.map((m) =>
+          m.id === action.id ? { ...m, content: action.content } : m,
+        ),
+      };
+
     case 'TRUNCATE_TO_LAST_USER': {
       // 切语言重新作答时用：把最后一轮问答整体撤掉，随后重发同一个问题
       const roles = state.messages.map((m) => m.role);
@@ -250,6 +259,8 @@ export interface UseChatResult {
   retry: () => void;
   /** 撤掉最后一轮问答，用当前语言重新作答 */
   regenerate: () => void;
+  /** 把已有回答翻译成目标语言（切换语言时用，避免用户重新提问） */
+  translateAll: (target: 'zh' | 'en' | 'ko') => Promise<void>;
   reset: () => void;
 }
 
@@ -533,6 +544,29 @@ export function useChat(): UseChatResult {
     setTimeout(() => void sendRef.current(lastUser.content), 0);
   }, [state.messages]);
 
+
+  /**
+   * 切换语言后，把历史回答逐条翻成目标语言。
+   * 逐条串行请求，避免一次打出去十几条并发；失败的那条保留原文。
+   */
+  const translateAll = useCallback(
+    async (target: 'zh' | 'en' | 'ko') => {
+      const targets = state.messages.filter(
+        (m) => m.role === 'assistant' && m.content.trim().length > 0,
+      );
+      for (const message of targets) {
+        const hasChinese = /[\u4e00-\u9fa5]/.test(message.content);
+        // 目标是中文且内容已是中文，或目标非中文且内容已无中文，都跳过
+        if ((target === 'zh' && hasChinese) || (target !== 'zh' && !hasChinese)) continue;
+        const translated = await translateText(message.content, target);
+        if (translated !== message.content) {
+          dispatch({ type: 'UPDATE_CONTENT', id: message.id, content: translated });
+        }
+      }
+    },
+    [state.messages],
+  );
+
   /** 恢复内置数据集：右侧「数据速览」回到延边水稻数据 */
   const clearDataset = useCallback(() => setDataset(null), []);
 
@@ -561,6 +595,7 @@ export function useChat(): UseChatResult {
     stop,
     retry,
     regenerate,
+    translateAll,
     reset,
   };
 }
