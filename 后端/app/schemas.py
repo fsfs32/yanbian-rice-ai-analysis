@@ -9,7 +9,13 @@ from __future__ import annotations
 from enum import Enum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field as PydanticField, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field as PydanticField,
+    field_validator,
+    model_validator,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -69,9 +75,20 @@ class AskRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    question: str = PydanticField(..., min_length=1, description="用户问题")
+    question: str = PydanticField(..., min_length=1, max_length=500, description="用户问题")
     history: list[ChatTurn] = PydanticField(default_factory=list, description="多轮上下文")
     session_id: str | None = PydanticField(default=None, description="会话标识")
+
+    @field_validator("history")
+    @classmethod
+    def _trim_history(cls, value: list["ChatTurn"]) -> list["ChatTurn"]:
+        """只保留最近 6 轮对话。
+
+        历史上限有两个作用：防止客户端塞入超长上下文把 token 撑爆，
+        也保证服务端的延迟与成本可控。超出部分直接截断而不报错，
+        对前端更友好。
+        """
+        return value[-6:] if len(value) > 6 else value
     csv: CsvAttachment | None = PydanticField(default=None, description="上传的 CSV，存在即文件分析场景")
 
 
