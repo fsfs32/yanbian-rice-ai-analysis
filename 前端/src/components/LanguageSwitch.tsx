@@ -3,12 +3,19 @@
 import { Languages } from 'lucide-react';
 import { LANGUAGES, useI18n } from '../i18n';
 
-export default function LanguageSwitch() {
+interface LanguageSwitchProps {
+  /** 切换完成后的回调，交给上层决定要不要用新语言重答 */
+  onChanged?: (next: 'zh' | 'en' | 'ko') => void;
+}
+
+export default function LanguageSwitch({ onChanged }: LanguageSwitchProps) {
   const { lang, setLang, t } = useI18n();
 
   const next = () => {
     const index = LANGUAGES.findIndex((item) => item.value === lang);
-    setLang(LANGUAGES[(index + 1) % LANGUAGES.length].value);
+    const nextLang = LANGUAGES[(index + 1) % LANGUAGES.length].value;
+    setLang(nextLang);
+    onChanged?.(nextLang);
   };
 
   const current = LANGUAGES.find((item) => item.value === lang) ?? LANGUAGES[0];

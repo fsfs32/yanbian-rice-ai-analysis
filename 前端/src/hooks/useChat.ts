@@ -38,6 +38,7 @@ type Action =
   | { type: 'INGEST_START'; id: string }
   | { type: 'INGEST_RESULT'; id: string; content: string; chart?: ChartData; table?: CsvPreview }
   | { type: 'TEXT_RESULT'; id: string; content: string; followups?: string[] }
+  | { type: 'TRUNCATE_TO_LAST_USER' }
   | { type: 'ERROR'; id: string; message: string }
   | { type: 'STOP' }
   | { type: 'RESET' };
@@ -122,6 +123,18 @@ function reducer(state: ChatState, action: Action): ChatState {
             : m,
         ),
       };
+    case 'TRUNCATE_TO_LAST_USER': {
+      // 切语言重新作答时用：把最后一轮问答整体撤掉，随后重发同一个问题
+      const roles = state.messages.map((m) => m.role);
+      const lastUserIndex = roles.lastIndexOf('user');
+      if (lastUserIndex < 0) return state;
+      return {
+        ...state,
+        messages: state.messages.slice(0, lastUserIndex),
+        isLoading: false,
+        status: 'idle',
+      };
+    }
     case 'TEXT_RESULT':
       // 纯文字回答（知识问答、寒暄等）：当作正常消息渲染，不套错误卡、不显示「重试」
       return {
@@ -235,6 +248,8 @@ export interface UseChatResult {
   ingestCsv: (input: { fileName: string; headers: string[]; rows: string[][] }) => void;
   stop: () => void;
   retry: () => void;
+  /** 撤掉最后一轮问答，用当前语言重新作答 */
+  regenerate: () => void;
   reset: () => void;
 }
 
@@ -502,6 +517,22 @@ export function useChat(): UseChatResult {
     if (lastUser) void sendQuestion(lastUser.content);
   }, [state.messages, sendQuestion]);
 
+  /**
+   * 切换语言后调用：撤掉最后一轮问答，再用新语言重发同一个问题。
+   * 不这么做的话，已经生成的中文回答在切到朝鲜语后仍是一堆中文，
+   * 用户会以为切换没生效。
+   */
+  // 供 setTimeout 回调使用的稳定引用，避免拿到旧的 sendQuestion 闭包
+  const sendRef = useRef<(question: string) => Promise<void>>(async () => {});
+
+  const regenerate = useCallback(() => {
+    const lastUser = [...state.messages].reverse().find((m) => m.role === 'user');
+    if (!lastUser) return;
+    dispatch({ type: 'TRUNCATE_TO_LAST_USER' });
+    // 先让截断落地，再按新语言重发
+    setTimeout(() => void sendRef.current(lastUser.content), 0);
+  }, [state.messages]);
+
   /** 恢复内置数据集：右侧「数据速览」回到延边水稻数据 */
   const clearDataset = useCallback(() => setDataset(null), []);
 
@@ -513,6 +544,8 @@ export function useChat(): UseChatResult {
     setDataset(null);
     dispatch({ type: 'RESET' });
   }, []);
+
+  sendRef.current = sendQuestion;
 
   return {
     messages: state.messages,
@@ -527,6 +560,7 @@ export function useChat(): UseChatResult {
     ingestCsv,
     stop,
     retry,
+    regenerate,
     reset,
   };
 }

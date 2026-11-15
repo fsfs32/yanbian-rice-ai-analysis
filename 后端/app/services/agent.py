@@ -503,7 +503,11 @@ class AnalysisAgent:
         if not known:
             return "本轮未调用数据工具，无数字可核对"
 
-        found = re.findall(r"(\d+(?:\.\d+)?)\s*万吨", summary)
+        # 多语言单位：中文「万吨」、朝鲜语「만 톤」、英文可能保留「万吨」或写成「10k tonnes」
+        found = re.findall(
+            r"(\d+(?:\.\d+)?)\s*(?:万吨|만\s*톤|만톤|万吨)",
+            summary,
+        )
         if not found:
             return f"结论未出现吨位数字；工具共返回 {len(known)} 个数值"
 

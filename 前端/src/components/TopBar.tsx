@@ -13,9 +13,11 @@ interface TopBarProps {
   latencyMs?: number | null;
   /** 最近一次问答的 token 用量，用于让成本可见 */
   usage?: { total_tokens: number; estimated_cost_cny?: number | null } | null;
+  /** 切换语言后的回调 */
+  onLanguageChanged?: (next: 'zh' | 'en' | 'ko') => void;
 }
 
-export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
+export default function TopBar({ onNewChat, latencyMs, usage, onLanguageChanged }: TopBarProps) {
   const { t } = useI18n();
   const [logoOk, setLogoOk] = useState(true);
   const [model, setModel] = useState<string | null>(null);
@@ -45,7 +47,7 @@ export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
       <div className="flex items-center gap-3">
-        <LanguageSwitch />
+        <LanguageSwitch onChanged={onLanguageChanged} />
         {logoOk ? (
           <img
             src="/logo.png"

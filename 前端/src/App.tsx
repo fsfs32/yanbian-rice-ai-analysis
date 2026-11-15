@@ -14,19 +14,29 @@ export default function App() {
     isLoading,
     history,
     dataset,
-    latencyMs, usage,
+    latencyMs,
+    usage,
     clearDataset,
     sendQuestion,
     stop,
     retry,
     reset,
     ingestCsv,
+    regenerate,
   } = useChat();
 
   return (
     <ErrorBoundary>
       <div className="flex h-screen flex-col bg-canvas">
-        <TopBar onNewChat={reset} latencyMs={latencyMs} usage={usage} />
+        <TopBar
+          onNewChat={reset}
+          latencyMs={latencyMs}
+          usage={usage}
+          onLanguageChanged={() => {
+            // 切语言后把最后一轮重答一遍，否则旧回答还是原语言，看着像没生效
+            if (messages.some((m) => m.role === 'user')) regenerate();
+          }}
+        />
         <div className="flex min-h-0 flex-1">
           <HistoryRail
             history={history}
