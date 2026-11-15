@@ -51,7 +51,6 @@ async function readErrorDetail(response: Response): Promise<string | undefined> 
 export async function askQuestion(
   question: string,
   signal?: AbortSignal,
-  language: string = 'zh',
 ): Promise<AskResponse> {
   const { controller, cleanup } = buildController(signal);
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -62,7 +61,7 @@ export async function askQuestion(
       response = await fetch(`${API_BASE_URL}/api/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question, language }),
+        body: JSON.stringify({ question }),
         signal: controller.signal,
       });
     } catch {
@@ -96,7 +95,6 @@ export async function streamQuestion(
   context?: AskContext,
   csv?: CsvAttachment,
   onStep?: (step: AgentStep) => void,
-  language: string = 'zh',
 ): Promise<AskResponse> {
   const { controller, cleanup } = buildController(signal);
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -108,7 +106,7 @@ export async function streamQuestion(
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream, application/json' },
         body: JSON.stringify({
-          question, language,
+          question,
           history: context?.history ?? [],
           session_id: context?.sessionId,
           ...(csv ? { csv } : {}),
@@ -182,18 +180,3 @@ async function readSse(
   return lastPayload;
 }
 
-/** 把一段已生成的回答翻译成目标语言；失败时返回原文 */
-export async function translateText(text: string, target: string): Promise<string> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/translate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ text, target }),
-    });
-    if (!response.ok) return text;
-    const data = (await response.json()) as { text?: string; translated?: boolean };
-    return data.translated && data.text ? data.text : text;
-  } catch {
-    return text;
-  }
-}
