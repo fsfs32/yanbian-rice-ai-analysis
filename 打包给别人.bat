@@ -12,14 +12,14 @@ echo ============================================
 echo   生成可交付的压缩包
 echo ============================================
 echo.
-echo 排除内容：.env（密钥）、.venv、node_modules、缓存、构建产物、.git
+echo 排除内容：.env（密钥）、.venv、node_modules、缓存、构建产物、.git、logs
 echo.
 
 if exist "%TMP%" rmdir /s /q "%TMP%"
 mkdir "%TMP%"
 
 echo [1/3] 复制项目文件...
-robocopy "%SRC%" "%TMP%" /E /XD .venv venv node_modules __pycache__ .pytest_cache dist .git .screenshots .workbuddy /XF .env *.pyc *.pdf.bak >nul
+robocopy "%SRC%" "%TMP%" /E /XD .venv venv node_modules __pycache__ .pytest_cache dist .git .screenshots .workbuddy logs /XF .env *.pyc >nul
 if errorlevel 8 (
     echo [错误] 复制失败，请检查是否有文件被占用
     pause

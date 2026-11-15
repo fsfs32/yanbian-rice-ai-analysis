@@ -9,6 +9,7 @@ set "FRONTEND=%~dp0前端"
 set "VENV=%BACKEND%\.venv"
 set "PYEXE=%VENV%\Scripts\python.exe"
 set "PIPMIRROR=https://mirrors.aliyun.com/pypi/simple/"
+set "LOGDIR=%~dp0logs"
 
 if not exist "%BACKEND%\app\main.py" (
     echo [错误] 找不到 后端\app\main.py
@@ -18,7 +19,7 @@ if not exist "%BACKEND%\app\main.py" (
     exit /b 1
 )
 
-REM ---------- 0. 先看服务是不是已经在跑 ----------
+REM ---------- 0. 服务是否已在运行 ----------
 set "BE_RUN="
 set "FE_RUN="
 netstat -ano | findstr ":8000" | findstr "LISTENING" >nul 2>&1
@@ -38,7 +39,7 @@ echo   延边大米 · 长势与产量 AI 数据分析平台
 echo ============================================
 echo.
 
-REM ---------- 1. 配置检查（不阻断启动） ----------
+REM ---------- 1. 配置检查 ----------
 if not exist "%BACKEND%\.env" (
     if exist "%BACKEND%\.env.example" copy "%BACKEND%\.env.example" "%BACKEND%\.env" >nul 2>&1
 )
@@ -80,10 +81,11 @@ if not exist "%FRONTEND%\node_modules" (
     echo [2/3] 前端依赖就绪
 )
 
-REM ---------- 4. 只启动还没跑的那一半 ----------
-echo [3/3] 正在启动服务...
-if not defined BE_RUN start "后端 FastAPI 8000" cmd /k _backend.bat
-if not defined FE_RUN start "前端 Vite 5173" cmd /k _frontend.bat
+REM ---------- 4. 隐藏启动缺的那一半 ----------
+if not exist "%LOGDIR%" mkdir "%LOGDIR%"
+echo [3/3] 正在后台启动服务...
+if not defined BE_RUN wscript //nologo "%~dp0_hidden.vbs" "%~dp0_backend.bat" "%LOGDIR%\后端.log"
+if not defined FE_RUN wscript //nologo "%~dp0_hidden.vbs" "%~dp0_frontend.bat" "%LOGDIR%\前端.log"
 
 set /a TRY=0
 :WAITVITE
@@ -102,7 +104,9 @@ start "" "http://localhost:5173"
 echo.
 echo ============================================
 echo   启动完成，浏览器已打开：http://localhost:5173
-echo   已运行的服务不会重复启动，本窗口 3 秒后自动关闭
+echo   服务在后台运行，没有命令行窗口
+echo   停止：双击「停止服务.bat」    日志：logs 文件夹
+echo   本窗口 3 秒后自动关闭
 echo ============================================
 timeout /t 3 /nobreak >nul
 exit /b 0
