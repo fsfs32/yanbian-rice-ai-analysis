@@ -32,6 +32,7 @@ class ChartType(str, Enum):
 
 class Field(str, Enum):
     """坐标轴字段：年份 / 产量 / 产值（revenue 对应产值估算）。"""
+    CITY = "city"
 
     YEAR = "year"
     YIELD = "yield"

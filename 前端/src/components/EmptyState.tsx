@@ -2,7 +2,7 @@
 // 图片位：把你要的图命名为 hero.jpg，放进 public/ 目录即可（原色显示，未放置时自动隐藏）
 // 显示尺寸：宽最多 660px × 高 208px（约 3:1 横图），object-cover 会自动裁剪填满
 import { useState } from 'react';
-import { LineChart, Trophy, Calculator, Activity, Bug, FlaskConical } from 'lucide-react';
+import { LineChart, Trophy, Calculator, MapPin, Bug, FlaskConical } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { calcKpi, formatWan } from '../utils/calcKpi';
 import { LABELS, VALUES } from '../utils/mockData';
@@ -26,7 +26,7 @@ const SUGGESTION_GROUPS: SuggestionGroup[] = [
       { icon: LineChart, text: '画出 2016—2025 年产量趋势', desc: '折线图 · 趋势对比' },
       { icon: Trophy, text: '产量最高的是哪一年？', desc: '柱状图 · 极值定位' },
       { icon: Calculator, text: '平均产量是多少？', desc: '关键指标 · 统计汇总' },
-      { icon: Activity, text: '产量波动最大的年份', desc: '波动分析 · 环比变化' },
+      { icon: MapPin, text: '吉林省各市州产量对比', desc: '市州对比 · 全省范围' },
     ],
   },
   {

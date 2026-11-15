@@ -3,7 +3,7 @@
 import type { ChartData, ChartType, Field } from '../types';
 
 const CHART_TYPES: readonly ChartType[] = ['line', 'bar', 'scatter', 'combo'];
-const FIELDS: readonly Field[] = ['year', 'yield', 'revenue'];
+const FIELDS: readonly Field[] = ['year', 'yield', 'revenue', 'city'];
 const TITLE_MAX = 80;
 const SUMMARY_MAX = 800;
 const FOLLOWUP_MAX = 40;

@@ -12,6 +12,22 @@ from typing import Any
 from ..core.exceptions import ToolExecutionError
 
 
+# 2025 年吉林省各市州稻谷（水稻）产量，单位：万吨。
+# 来源：吉林省统计局统一发布的各市州《2025 年国民经济和社会发展统计公报》。
+# 白山市的公报只公布谷物合计（24.94 万吨），未单列稻谷，故不纳入，避免用估算值充数。
+# 其余八市州合计 661.31 万吨，与全省 682.65 万吨的差额即白山等未单列部分，口径自洽。
+CITY_YIELD_2025: dict[str, float] = {
+    "长春市": 141.68,
+    "白城市": 189.18,
+    "松原市": 123.16,
+    "吉林市": 99.50,
+    "通化市": 38.20,
+    "四平市": 33.40,
+    "延边州": 21.85,
+    "辽源市": 14.34,
+}
+
+
 class DataSource(ABC):
     """数据源接口：负责提供延边州水稻产量与产值的真实数据。"""
 
@@ -22,6 +38,10 @@ class DataSource(ABC):
     @abstractmethod
     def query_statistics(self, field: str) -> dict[str, Any]:
         """对指定字段（yield / revenue）做描述性统计。"""
+
+    @abstractmethod
+    def query_cities(self, year: int = 2025) -> dict[str, Any]:
+        """按市州查询吉林省稻谷产量（目前仅 2025 年有官方分市数据）。"""
 
 
 class InMemoryRiceDataSource(DataSource):
@@ -68,4 +88,28 @@ class InMemoryRiceDataSource(DataSource):
             "max": max(series),
             "mean": round(sum(series) / n, 2),
             "trend": "上升" if series[-1] > series[0] else "下降",
+        }
+
+
+    def query_cities(self, year: int = 2025) -> dict[str, Any]:
+        """返回按产量降序排列的各市州稻谷产量。"""
+        if int(year) != 2025:
+            return {
+                "year": int(year),
+                "unit": "万吨",
+                "cities": [],
+                "note": "分市州数据目前只收录 2025 年，其它年份没有官方公布的分市产量",
+                "source": "吉林省统计局：各市州《2025年国民经济和社会发展统计公报》",
+            }
+
+        items = sorted(CITY_YIELD_2025.items(), key=lambda kv: kv[1], reverse=True)
+        return {
+            "year": 2025,
+            "unit": "万吨",
+            "cities": [{"name": name, "yield": value} for name, value in items],
+            "note": (
+                "白山市的公报只公布谷物合计、未单列稻谷，因此未纳入；"
+                "其余八市州合计 661.31 万吨"
+            ),
+            "source": "吉林省统计局：各市州《2025年国民经济和社会发展统计公报》",
         }

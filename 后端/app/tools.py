@@ -61,6 +61,14 @@ def _make_query_statistics(datasource: DataSource) -> ToolHandler:
     return handler
 
 
+def _make_query_cities(datasource: DataSource) -> ToolHandler:
+    def handler(args: dict[str, Any]) -> dict[str, Any]:
+        year = int(args.get("year", 2025))
+        return datasource.query_cities(year)
+
+    return handler
+
+
 def _make_search_knowledge(retriever: RagRetriever) -> ToolHandler:
     """检索延边水稻/农业专业知识库。"""
 
@@ -119,6 +127,28 @@ def build_tool_registry(
         },
         _make_query_statistics(datasource),
     )
+    registry.register(
+        "query_cities",
+        {
+            "name": "query_cities",
+            "description": (
+                "查询吉林省各市州的稻谷产量对比（2025 年）。当用户问「哪个市产量最高」"
+                "「各市州对比」「全省范围」时调用；数据来自各市州 2025 年统计公报。"
+                "白山市未单列稻谷产量，故不包含在结果内。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "year": {
+                        "type": "integer",
+                        "description": "年份，目前仅 2025 年有官方分市数据",
+                    }
+                },
+            },
+        },
+        _make_query_cities(datasource),
+    )
+
 
     if retriever is not None:
         registry.register(
@@ -154,7 +184,7 @@ def build_tool_registry(
             "name": "submit_answer",
             "description": (
                 "提交最终回答。必须严格遵循 chart_config / labels / values / summary 结构，"
-                "chart_type 取值 line/bar/scatter/combo，字段取值 year/yield/revenue；"
+                "chart_type 取值 line/bar/scatter/combo，字段取值 year/yield/revenue/city（市州对比时 x_field 用 city，labels 填市州名）；"
                 "纯文字回答时 labels 与 values 传空数组。"
             ),
             "parameters": {
@@ -164,8 +194,8 @@ def build_tool_registry(
                         "type": "object",
                         "properties": {
                             "chart_type": {"type": "string", "enum": ["line", "bar", "scatter", "combo"]},
-                            "x_field": {"type": "string", "enum": ["year", "yield", "revenue"]},
-                            "y_field": {"type": "string", "enum": ["year", "yield", "revenue"]},
+                            "x_field": {"type": "string", "enum": ["year", "yield", "revenue", "city"]},
+                            "y_field": {"type": "string", "enum": ["year", "yield", "revenue", "city"]},
                             "y2_field": {"type": "string", "enum": ["year", "yield", "revenue"]},
                             "title": {"type": "string"},
                         },

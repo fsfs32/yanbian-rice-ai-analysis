@@ -13,6 +13,7 @@ export const FIELD_LABEL: Record<Field, string> = {
   year: '年份',
   yield: '产量（万吨）',
   revenue: '销售额（亿元）',
+  city: '市州',
 };
 
 /** 组合图：左轴产量（柱）+ 右轴销售额（折线） */

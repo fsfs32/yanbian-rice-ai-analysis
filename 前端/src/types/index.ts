@@ -4,7 +4,7 @@
 export type ChartType = 'line' | 'bar' | 'scatter' | 'combo';
 
 /** 图表坐标轴字段白名单：年份 / 产量 / 销售额 */
-export type Field = 'year' | 'yield' | 'revenue';
+export type Field = 'year' | 'yield' | 'revenue' | 'city';
 
 /** 后端返回的图表配置 */
 export interface ChartConfig {
