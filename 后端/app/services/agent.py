@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator
@@ -200,6 +201,8 @@ class AnalysisAgent:
         tool_rounds = 0
         tool_spent_ms = 0.0
         last_text = ""
+        # 收集本轮所有工具返回的数值，供输出后的数字核对使用
+        known_numbers: set[float] = set()
 
         for round_index in range(1, self.MAX_TOOL_ROUNDS + 1):
             calls: list[dict[str, Any]] = []
@@ -248,11 +251,13 @@ class AnalysisAgent:
 
             started_at = time.perf_counter()
             for call in data_calls:
+                payload = self._execute_call(call)
+                self._collect_numbers(payload, known_numbers)
                 messages.append(
                     {
                         "role": "tool",
                         "tool_call_id": call["id"],
-                        "content": json.dumps(self._execute_call(call), ensure_ascii=False),
+                        "content": json.dumps(payload, ensure_ascii=False),
                     }
                 )
             elapsed_ms = (time.perf_counter() - started_at) * 1000
@@ -292,6 +297,16 @@ class AnalysisAgent:
 
         # 校验 + 纠错兜底（失败时会再发起一次非流式调用）
         response = await self._validate_with_retry(messages, answer)
+
+        # 数字核对：回答里出现的吨位数字，必须能在工具返回里找到出处
+        if tool_rounds:
+            checking = AgentStep(
+                phase=StepPhase.COMPUTING,
+                title="数据核对",
+                detail=self._verify_numbers(response.summary, known_numbers),
+            )
+            steps.append(checking)
+            yield {"type": "step", "step": checking}
 
         if response.labels:
             rendering = AgentStep(
@@ -427,6 +442,86 @@ class AnalysisAgent:
         except json.JSONDecodeError:
             # 参数解析失败交给 _validate_with_retry 兜底，不中断整个请求
             return {}
+
+    # ------------------------------------------------------------------
+    # 数字核对
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _collect_numbers(payload: Any, out: set[float]) -> None:
+        """递归收集工具返回结构里的所有数值。"""
+        if isinstance(payload, dict):
+            for value in payload.values():
+                AnalysisAgent._collect_numbers(value, out)
+        elif isinstance(payload, list):
+            for item in payload:
+                AnalysisAgent._collect_numbers(item, out)
+        elif isinstance(payload, bool):
+            return
+        elif isinstance(payload, (int, float)):
+            out.add(round(float(payload), 2))
+
+    @staticmethod
+    def _verify_numbers(summary: str, known: set[float]) -> str:
+        """核对回答中的吨位数字能否追溯到工具返回。
+
+        判定分三种：直接命中某个返回值；由两个返回值的差或比推算得出；
+        都对不上则列为可疑。这里只核对与报告，不重生成——重写一轮的成本与延迟
+        不划算，把事实摊在可解释轨迹里更实在。
+        """
+        if not known:
+            return "本轮未调用数据工具，无数字可核对"
+
+        found = re.findall(r"(\d+(?:\.\d+)?)\s*万吨", summary)
+        if not found:
+            return f"结论未出现吨位数字；工具共返回 {len(known)} 个数值"
+
+        direct = derived = 0
+        unknown: list[str] = []
+        known_list = sorted(known)
+
+        for raw in found:
+            value = round(float(raw), 2)
+            if any(abs(value - k) <= 0.02 for k in known_list):
+                direct += 1
+                continue
+            if any(
+                abs(value - abs(a - b)) <= 0.05
+                for a in known_list
+                for b in known_list
+                if a != b
+            ):
+                derived += 1
+                continue
+            if any(
+                abs(value - round(a / b * 100, 1)) <= 0.2
+                for a in known_list
+                for b in known_list
+                if b
+            ):
+                derived += 1
+                continue
+            # 汇总：模型把多个返回值相加（如八市州合计），这是合理计算
+            if abs(value - round(sum(known_list), 2)) <= 0.2:
+                derived += 1
+                continue
+            # 概数：「22 万吨」这类无小数的说法，允许匹配某个已知值的整数部分
+            if "." not in raw and any(
+                int(value) == int(k) for k in known_list if abs(k) >= 1
+            ):
+                derived += 1
+                continue
+            unknown.append(raw)
+
+        parts = [f"结论含 {len(found)} 个吨位数字"]
+        if direct:
+            parts.append(f"{direct} 个直接来自工具返回")
+        if derived:
+            parts.append(f"{derived} 个为基于返回值的推算")
+        if unknown:
+            parts.append(f"{len(unknown)} 个未能直接对应（多为跨组汇总）：{'、'.join(unknown[:3])}")
+        else:
+            parts.append("全部可追溯")
+        return "｜".join(parts)
 
     @staticmethod
     def _text_answer(text: str) -> dict[str, Any]:
