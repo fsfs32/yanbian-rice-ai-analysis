@@ -1,5 +1,6 @@
 // 单条消息气泡（展示组件）：用户消息右对齐气泡，AI 回答左对齐（结论 + KPI + 图表 + 表格），纯展示
 import { memo } from 'react';
+import { useI18n } from '../i18n';
 import type { ChatMessage } from '../types';
 import { calcKpi, formatNumber, formatWan } from '../utils/calcKpi';
 import ChartCard from './ChartCard';
@@ -42,6 +43,7 @@ function AiBadge() {
 }
 
 const MessageBubble = memo(function MessageBubble({ message, onFollowup }: MessageBubbleProps) {
+  const { t } = useI18n();
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -149,7 +151,7 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
           )}
         </div>
         {message.kind === 'normal' && message.role === 'assistant' && message.content && (
-          <p className="mt-1.5 text-[11.5px] text-text-faint">AI 生成内容仅供参考</p>
+          <p className="mt-1.5 text-[11.5px] text-text-faint">{t('ai.disclaimer')}</p>
         )}
 
         {/* 推荐追问：点击即继续提问 */}

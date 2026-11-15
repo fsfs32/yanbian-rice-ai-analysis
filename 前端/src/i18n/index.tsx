@@ -35,6 +35,9 @@ const MESSAGES = {
     'ai.note': 'AI 生成内容仅供参考',
     'ai.followup': '继续追问',
     'lang.switch': '切换语言',
+    'history.title': '最近提问',
+    'history.clear': '开始新对话',
+    'ai.disclaimer': 'AI 生成内容仅供参考',
   },
   en: {
     'app.name': 'Yanbian Rice · Yield Insights',
@@ -54,6 +57,9 @@ const MESSAGES = {
     'ai.note': 'AI-generated content for reference only',
     'ai.followup': 'Follow up',
     'lang.switch': 'Switch language',
+    'history.title': 'Recent questions',
+    'history.clear': 'New conversation',
+    'ai.disclaimer': 'AI-generated content for reference only',
   },
   ko: {
     'app.name': '연변 쌀 · 생육과 생산량',
@@ -73,6 +79,9 @@ const MESSAGES = {
     'ai.note': 'AI 생성 내용은 참고용입니다',
     'ai.followup': '이어서 묻기',
     'lang.switch': '언어 전환',
+    'history.title': '최근 질문',
+    'history.clear': '새 대화 시작',
+    'ai.disclaimer': 'AI 생성 내용은 참고용입니다',
   },
 } as const;
 

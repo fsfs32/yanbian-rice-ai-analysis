@@ -22,7 +22,6 @@ export default function App() {
     retry,
     reset,
     ingestCsv,
-    regenerate,
   } = useChat();
 
   return (
@@ -33,8 +32,11 @@ export default function App() {
           latencyMs={latencyMs}
           usage={usage}
           onLanguageChanged={() => {
-            // 切语言后把最后一轮重答一遍，否则旧回答还是原语言，看着像没生效
-            if (messages.some((m) => m.role === 'user')) regenerate();
+            // 切换语言时清空当前对话。
+            // 之前试过「自动用新语言重答最后一轮」，但那会形成请求循环
+            // （重答完成后又触发一次重答），日志里能连续看到五六次调用。
+            // 清空更干净：用户看到的是新语言的首屏，重新提问即可得到新语言的回答。
+            reset();
           }}
         />
         <div className="flex min-h-0 flex-1">
