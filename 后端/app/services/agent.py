@@ -31,12 +31,13 @@ from .stream_extract import SummaryExtractor
 LANGUAGE_INSTRUCTIONS: dict[str, str] = {
     "zh": "",
     "en": (
-        "\n\nImportant: reply in English. Keep the numbers, dates and source names exactly as "
-        "returned by the tools, and translate only your own explanations."
+        "\n\nImportant: reply in English. Convert the unit 「万吨」(ten thousand tonnes) into plain "
+        "tonnes: multiply the number by 10,000 and write it with a thousands separator, "
+        "e.g. 21.85 万吨 becomes 218,500 tonnes. Keep dates and source names as returned."
     ),
     "ko": (
-        "\n\n중요: 반드시 한국어(조선어)로 답하십시오. 도구가 돌려준 숫자·날짜·출처 이름은 "
-        "원문 그대로 두고, 설명 부분만 번역하십시오."
+        "\n\n중요: 반드시 한국어(조선어)로 답하십시오. 단위는 「만 톤」으로 쓰면 됩니다"
+        "(21.85 万吨 → 21.85만 톤). 날짜와 출처 이름은 원문 그대로 두십시오."
     ),
 }
 
@@ -503,11 +504,22 @@ class AnalysisAgent:
         if not known:
             return "本轮未调用数据工具，无数字可核对"
 
-        # 多语言单位：中文「万吨」、朝鲜语「만 톤」、英文可能保留「万吨」或写成「10k tonnes」
-        found = re.findall(
-            r"(\d+(?:\.\d+)?)\s*(?:万吨|만\s*톤|만톤|万吨)",
+        # 多语言单位：中文「万吨」、朝鲜语「만 톤」，以及英文换算后的 tonnes。
+        # 英文会把 21.85 万吨写成 218,500 tonnes，这里按下标把两类分开统计。
+        found_wan = re.findall(
+            r"(\d+(?:\.\d+)?)\s*(?:万吨|만\s*톤|만톤)",
             summary,
         )
+        # 英文吨：可带千分位，如 218,500 tonnes / 21.85 thousand tonnes
+        found_tonnes = re.findall(r"([\d,]+(?:\.\d+)?)\s*(?:tonnes|tons)", summary)
+        found = list(found_wan)
+        # tonnes 数值除以 1 万，换算回万吨后参与比对
+        for raw_ton in found_tonnes:
+            try:
+                value = float(raw_ton.replace(",", "")) / 10000
+            except ValueError:
+                continue
+            found.append(str(round(value, 2)))
         if not found:
             return f"结论未出现吨位数字；工具共返回 {len(known)} 个数值"
 

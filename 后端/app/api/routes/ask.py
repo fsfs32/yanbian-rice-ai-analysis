@@ -81,7 +81,10 @@ async def _stream(request: AskRequest) -> AsyncIterator[str]:
 # ----------------------------------------------------------------------
 _TRANSLATE_PROMPT = {
     "zh": "把下面的内容翻译成中文。只输出译文，不要解释，不要加引号。",
-    "en": "Translate the following into English. Output only the translation, no explanation.",
+    "en": (
+        "Translate the following into English. Convert 「万吨」into plain tonnes by multiplying "
+        "by 10,000 (21.85 万吨 → 218,500 tonnes). Output only the translation."
+    ),
     "ko": "다음 내용을 한국어로 번역하십시오. 번역문만 출력하고 설명은 붙이지 마십시오.",
 }
 
@@ -102,7 +105,7 @@ async def translate(request: TranslateRequest) -> TranslateResponse:
             "role": "system",
             "content": (
                 system_prompt
-                + " 保留原文中的数字、百分比、年份与单位（如「万吨」），不要改动或换算它们。"
+                + " 保留原文中的百分比与年份；单位按目标语言习惯处理（英文换算成吨，朝鲜语用「만 톤」）。"
                 + " 保留原有的段落与序号结构。"
             )
         },

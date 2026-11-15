@@ -188,6 +188,14 @@ function reducer(state: ChatState, action: Action): ChatState {
 }
 
 /** 请求结果：成功携带数据与是否演示数据，失败携带友好提示，主动停止则静默结束 */
+/** 粗略判断一段文本属于哪种语言，用于决定要不要翻译 */
+function detectLang(text: string): 'zh' | 'en' | 'ko' {
+  if (/[\uac00-\ud7af]/.test(text)) return 'ko'; // 谚文
+  if (/[\u4e00-\u9fa5]/.test(text)) return 'zh'; // 汉字
+  if (/[a-zA-Z]{4,}/.test(text)) return 'en'; // 成串拉丁字母
+  return 'zh';
+}
+
 type RequestOutcome =
   | { kind: 'ok'; data: AskResponse; isDemo: boolean }
   | { kind: 'error'; message: string }
@@ -555,9 +563,9 @@ export function useChat(): UseChatResult {
         (m) => m.role === 'assistant' && m.content.trim().length > 0,
       );
       for (const message of targets) {
-        const hasChinese = /[\u4e00-\u9fa5]/.test(message.content);
-        // 目标是中文且内容已是中文，或目标非中文且内容已无中文，都跳过
-        if ((target === 'zh' && hasChinese) || (target !== 'zh' && !hasChinese)) continue;
+        // 先判断这段文字属于哪种语言，再和目标语言比。
+        // 早先用「内容里有没有汉字」来判断，英文回答切朝鲜语时会被误判为「已是目标语言」而跳过。
+        if (detectLang(message.content) === target) continue;
         const translated = await translateText(message.content, target);
         if (translated !== message.content) {
           dispatch({ type: 'UPDATE_CONTENT', id: message.id, content: translated });
