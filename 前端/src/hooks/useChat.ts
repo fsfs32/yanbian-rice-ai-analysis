@@ -2,9 +2,8 @@
 // 数据流：组件 → useChat → askApi → 后端 → useChat → 组件 props
 
 import { useCallback, useReducer, useRef, useState } from 'react';
-import { useI18n } from '../i18n';
 import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartData, CsvAttachment, CsvPreview, CsvDataset, HistoryEntry, UsageInfo } from '../types';
-import { streamQuestion, translateText } from '../api/askApi';
+import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
 import { analyzeCsv, summarizeSeries } from '../utils/csvInsight';
@@ -188,14 +187,6 @@ function reducer(state: ChatState, action: Action): ChatState {
 }
 
 /** 请求结果：成功携带数据与是否演示数据，失败携带友好提示，主动停止则静默结束 */
-/** 粗略判断一段文本属于哪种语言，用于决定要不要翻译 */
-function detectLang(text: string): 'zh' | 'en' | 'ko' {
-  if (/[\uac00-\ud7af]/.test(text)) return 'ko'; // 谚文
-  if (/[\u4e00-\u9fa5]/.test(text)) return 'zh'; // 汉字
-  if (/[a-zA-Z]{4,}/.test(text)) return 'en'; // 成串拉丁字母
-  return 'zh';
-}
-
 type RequestOutcome =
   | { kind: 'ok'; data: AskResponse; isDemo: boolean }
   | { kind: 'error'; message: string }
@@ -210,12 +201,11 @@ async function requestWithRetry(
   onDelta: (text: string) => void,
   onStep: (step: AgentStep) => void,
   context: { history: ChatTurn[]; sessionId: string },
-  lang: string,
 ): Promise<RequestOutcome> {
   for (let attempt = 0; attempt <= 1; attempt++) {
     if (isStopped()) return { kind: 'aborted' };
     try {
-      const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep, lang);
+      const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep);
       return { kind: 'ok', data, isDemo: false };
     } catch (error) {
       if (isStopped()) return { kind: 'aborted' };
@@ -265,15 +255,10 @@ export interface UseChatResult {
   ingestCsv: (input: { fileName: string; headers: string[]; rows: string[][] }) => void;
   stop: () => void;
   retry: () => void;
-  /** 撤掉最后一轮问答，用当前语言重新作答 */
-  regenerate: () => void;
-  /** 把已有回答翻译成目标语言（切换语言时用，避免用户重新提问） */
-  translateAll: (target: 'zh' | 'en' | 'ko') => Promise<void>;
   reset: () => void;
 }
 
 export function useChat(): UseChatResult {
-  const { lang } = useI18n();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [dataset, setDataset] = useState<CsvDataset | null>(null);
@@ -338,7 +323,6 @@ export function useChat(): UseChatResult {
         onDelta,
         onStep,
         { history: turns, sessionId: sessionIdRef.current },
-        lang,
       );
       if (isStale() || outcome.kind === 'aborted') return;
 
@@ -392,7 +376,7 @@ export function useChat(): UseChatResult {
         summary: validation.summary,
       });
     },
-    [state.messages, lang],
+    [state.messages],
   );
 
   const stop = useCallback(() => {
@@ -493,7 +477,6 @@ export function useChat(): UseChatResult {
           { history: [], sessionId: sessionIdRef.current },
           csv,
           onStep,
-      lang,
     );
 
         if (isStale() || isStopped()) return;
@@ -528,7 +511,7 @@ export function useChat(): UseChatResult {
         dispatch({ type: 'INGEST_RESULT', id: aiMsgId, content: fallbackContent, chart: fallbackChart, table });
       }
     },
-    [lang],
+    [],
   );
 
   const retry = useCallback(() => {
@@ -536,44 +519,8 @@ export function useChat(): UseChatResult {
     if (lastUser) void sendQuestion(lastUser.content);
   }, [state.messages, sendQuestion]);
 
-  /**
-   * 切换语言后调用：撤掉最后一轮问答，再用新语言重发同一个问题。
-   * 不这么做的话，已经生成的中文回答在切到朝鲜语后仍是一堆中文，
-   * 用户会以为切换没生效。
-   */
-  // 供 setTimeout 回调使用的稳定引用，避免拿到旧的 sendQuestion 闭包
-  const sendRef = useRef<(question: string) => Promise<void>>(async () => {});
-
-  const regenerate = useCallback(() => {
-    const lastUser = [...state.messages].reverse().find((m) => m.role === 'user');
-    if (!lastUser) return;
-    dispatch({ type: 'TRUNCATE_TO_LAST_USER' });
-    // 先让截断落地，再按新语言重发
-    setTimeout(() => void sendRef.current(lastUser.content), 0);
-  }, [state.messages]);
 
 
-  /**
-   * 切换语言后，把历史回答逐条翻成目标语言。
-   * 逐条串行请求，避免一次打出去十几条并发；失败的那条保留原文。
-   */
-  const translateAll = useCallback(
-    async (target: 'zh' | 'en' | 'ko') => {
-      const targets = state.messages.filter(
-        (m) => m.role === 'assistant' && m.content.trim().length > 0,
-      );
-      for (const message of targets) {
-        // 先判断这段文字属于哪种语言，再和目标语言比。
-        // 早先用「内容里有没有汉字」来判断，英文回答切朝鲜语时会被误判为「已是目标语言」而跳过。
-        if (detectLang(message.content) === target) continue;
-        const translated = await translateText(message.content, target);
-        if (translated !== message.content) {
-          dispatch({ type: 'UPDATE_CONTENT', id: message.id, content: translated });
-        }
-      }
-    },
-    [state.messages],
-  );
 
   /** 恢复内置数据集：右侧「数据速览」回到延边水稻数据 */
   const clearDataset = useCallback(() => setDataset(null), []);
@@ -587,7 +534,6 @@ export function useChat(): UseChatResult {
     dispatch({ type: 'RESET' });
   }, []);
 
-  sendRef.current = sendQuestion;
 
   return {
     messages: state.messages,
@@ -602,8 +548,6 @@ export function useChat(): UseChatResult {
     ingestCsv,
     stop,
     retry,
-    regenerate,
-    translateAll,
     reset,
   };
 }

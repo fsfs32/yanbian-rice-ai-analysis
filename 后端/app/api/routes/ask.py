@@ -15,7 +15,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from ...core.exceptions import AppError
-from ...schemas import AskRequest, TranslateRequest, TranslateResponse
+from ...schemas import AskRequest
 from ...services.agent import AnalysisAgent
 from ...services.data_source import InMemoryRiceDataSource
 from ...services.llm import LlmClient
@@ -74,53 +74,3 @@ async def _stream(request: AskRequest) -> AsyncIterator[str]:
         yield f"data: {json.dumps({'delta': '抱歉，AI 分析暂时不可用，请稍后重试。'}, ensure_ascii=False)}\n\n"
 
     yield "data: [DONE]\n\n"
-
-
-# ----------------------------------------------------------------------
-# 翻译：切换语言时把已有回答翻成目标语言
-# ----------------------------------------------------------------------
-_TRANSLATE_PROMPT = {
-    "zh": "把下面的内容翻译成中文。只输出译文，不要解释，不要加引号。",
-    "en": (
-        "Translate the following into English. Convert 「万吨」into plain tonnes by multiplying "
-        "by 10,000 (21.85 万吨 → 218,500 tonnes). Output only the translation."
-    ),
-    "ko": "다음 내용을 한국어로 번역하십시오. 번역문만 출력하고 설명은 붙이지 마십시오.",
-}
-
-
-@router.post("/translate", response_model=TranslateResponse)
-async def translate(request: TranslateRequest) -> TranslateResponse:
-    """把一段已生成的回答翻译成目标语言。
-
-    与 /api/ask 的区别：这里不查数据、不调工具，只做一次纯文本翻译，
-    因此成本与延迟都远低于重新作答。
-    """
-    target = request.target
-    # 源语言与目标语言一致时直接返回，省一次调用
-    system_prompt = _TRANSLATE_PROMPT.get(target, _TRANSLATE_PROMPT["en"])
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                system_prompt
-                + " 保留原文中的百分比与年份；单位按目标语言习惯处理（英文换算成吨，朝鲜语用「만 톤」）。"
-                + " 保留原有的段落与序号结构。"
-            )
-        },
-        {"role": "user", "content": request.text},
-    ]
-
-    try:
-        response = await _llm.chat(messages, temperature=0.1)
-        translated = (response["choices"][0]["message"].get("content") or "").strip()
-    except AppError:
-        # 翻译失败不阻断：前端保留原文即可
-        return TranslateResponse(text=request.text, target=target, translated=False)
-    except Exception:  # noqa: BLE001
-        return TranslateResponse(text=request.text, target=target, translated=False)
-
-    if not translated:
-        return TranslateResponse(text=request.text, target=target, translated=False)
-    return TranslateResponse(text=translated, target=target, translated=True)

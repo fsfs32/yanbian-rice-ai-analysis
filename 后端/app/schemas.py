@@ -79,17 +79,6 @@ class AskRequest(BaseModel):
     question: str = PydanticField(..., min_length=1, max_length=500, description="用户问题")
     history: list[ChatTurn] = PydanticField(default_factory=list, description="多轮上下文")
     session_id: str | None = PydanticField(default=None, description="会话标识")
-    language: str = PydanticField(
-        default="zh",
-        description="回答语言：zh 中文、en 英文、ko 朝鲜语",
-    )
-
-    @field_validator("language")
-    @classmethod
-    def _normalize_language(cls, value: str) -> str:
-        """只接受三种语言，其它值一律退回中文，避免把非法值透传给模型。"""
-        normalized = (value or "").strip().lower()
-        return normalized if normalized in {"zh", "en", "ko"} else "zh"
 
     @field_validator("history")
     @classmethod
@@ -131,29 +120,6 @@ class UsageInfo(BaseModel):
     total_tokens: int = 0
     calls: int = 0
     estimated_cost_cny: float | None = None
-
-
-class TranslateRequest(BaseModel):
-    """POST /api/translate 请求体。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    text: str = PydanticField(..., min_length=1, max_length=2000, description="待翻译文本")
-    target: str = PydanticField(default="en", description="目标语言：zh / en / ko")
-
-    @field_validator("target")
-    @classmethod
-    def _normalize_target(cls, value: str) -> str:
-        normalized = (value or "").strip().lower()
-        return normalized if normalized in {"zh", "en", "ko"} else "en"
-
-
-class TranslateResponse(BaseModel):
-    """POST /api/translate 响应体。"""
-
-    text: str
-    target: str
-    translated: bool = True
 
 
 class AskResponse(BaseModel):

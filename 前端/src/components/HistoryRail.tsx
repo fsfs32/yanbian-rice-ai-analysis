@@ -1,7 +1,6 @@
-// {t('history.title')}（展示组件）：宽屏左栏，读取本机浏览器保存的提问历史，点击即重新提问
+// 最近提问（展示组件）：宽屏左栏，读取本机浏览器保存的提问历史，点击即重新提问
 // 只在 ≥1280px 显示，窄屏收起以保持单栏极简阅读体验
 import { Clock3, MessageSquarePlus } from 'lucide-react';
-import { useI18n } from '../i18n';
 import type { HistoryEntry } from '../types';
 import { relativeTime } from '../utils/history';
 
@@ -14,14 +13,13 @@ interface HistoryRailProps {
 }
 
 export default function HistoryRail({ history, onPick, onNew, showDataNote }: HistoryRailProps) {
-  const { t } = useI18n();
   return (
     <aside
-      aria-label="{t('history.title')}"
+      aria-label="最近提问"
       className="hidden w-[248px] shrink-0 flex-col overflow-y-auto border-r border-border/70 bg-rail px-4 py-7 min-[1280px]:flex"
     >
       <h2 className="px-2.5 text-[12px] font-medium uppercase tracking-[0.14em] text-text-faint">
-        {t('history.title')}
+        最近提问
       </h2>
 
       <button
@@ -30,7 +28,7 @@ export default function HistoryRail({ history, onPick, onNew, showDataNote }: Hi
         className="mt-3 flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13.5px] text-text-body transition-colors duration-150 hover:bg-primary-soft"
       >
         <MessageSquarePlus size={16} aria-hidden="true" />
-        {t('history.clear')}
+        开始新对话
       </button>
 
       <div className="mt-5 flex flex-col gap-0.5">

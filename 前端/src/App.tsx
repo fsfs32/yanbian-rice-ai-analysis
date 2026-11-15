@@ -34,10 +34,6 @@ export default function App() {
           onNewChat={reset}
           latencyMs={latencyMs}
           usage={usage}
-          onLanguageChanged={() => {
-            // 只切界面文字。历史回答逐条翻译要串行调用，条数一多就明显卡顿，
-            // 体验反而更差；回答保持原样，用户接着提问就是新语言。
-          }}
         />
         <div className="flex min-h-0 flex-1">
           <HistoryRail

@@ -1,7 +1,6 @@
 // 推荐追问（展示组件）：把后端给的 followups 渲染成可点的继续提问入口
 // 点击等价于重新发问，省掉手动输入的步骤 —— 成熟 AI 产品的常见做法
 import { CornerDownRight } from 'lucide-react';
-import { useI18n } from '../i18n';
 
 interface FollowupListProps {
   items: string[];
@@ -9,14 +8,13 @@ interface FollowupListProps {
 }
 
 export default function FollowupList({ items, onPick }: FollowupListProps) {
-  const { t } = useI18n();
   if (items.length === 0) return null;
 
   return (
     <div className="mt-4 flex flex-col gap-2">
       <p className="flex items-center gap-1.5 text-[11.5px] text-text-faint">
         <CornerDownRight size={12} aria-hidden="true" />
-        {t('ai.followup')}
+        继续追问
       </p>
       <div className="flex flex-wrap gap-2">
         {items.map((item) => (

@@ -27,20 +27,6 @@ from .stream_extract import SummaryExtractor
 # ---------------------------------------------------------------------------
 # System Prompt
 # ---------------------------------------------------------------------------
-# 回答语言指令：追加在系统提示词末尾，只约束输出语言，不影响数据口径
-LANGUAGE_INSTRUCTIONS: dict[str, str] = {
-    "zh": "",
-    "en": (
-        "\n\nImportant: reply in English. Convert the unit 「万吨」(ten thousand tonnes) into plain "
-        "tonnes: multiply the number by 10,000 and write it with a thousands separator, "
-        "e.g. 21.85 万吨 becomes 218,500 tonnes. Keep dates and source names as returned."
-    ),
-    "ko": (
-        "\n\n중요: 반드시 한국어(조선어)로 답하십시오. 단위는 「만 톤」으로 쓰면 됩니다"
-        "(21.85 万吨 → 21.85만 톤). 날짜와 출처 이름은 원문 그대로 두십시오."
-    ),
-}
-
 SYSTEM_PROMPT = """你是「延边大米长势与产量」数据分析专家。
 
 你的职责是：基于真实数据回答用户关于延边州水稻（稻谷）产量、产值、长势趋势的问题，
@@ -390,10 +376,7 @@ class AnalysisAgent:
     # 消息组装
     # ------------------------------------------------------------------
     def _build_messages(self, request: AskRequest) -> list[dict[str, Any]]:
-        instruction = LANGUAGE_INSTRUCTIONS.get(request.language, "")
-        messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT + instruction}
-        ]
+        messages: list[dict[str, Any]] = [{"role": "system", "content": SYSTEM_PROMPT}]
         for turn in request.history:
             messages.append({"role": turn.role, "content": turn.content})
 

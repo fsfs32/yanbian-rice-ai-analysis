@@ -4,7 +4,6 @@
 import { useState } from 'react';
 import { LineChart, Trophy, Calculator, MapPin, Bug, FlaskConical } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useI18n } from '../i18n';
 import { calcKpi, formatWan } from '../utils/calcKpi';
 import { LABELS, VALUES } from '../utils/mockData';
 
@@ -52,7 +51,6 @@ interface EmptyStateProps {
 }
 
 export default function EmptyState({ onSend }: EmptyStateProps) {
-  const { t } = useI18n();
   const [heroOk, setHeroOk] = useState(true);
 
   return (
@@ -68,10 +66,10 @@ export default function EmptyState({ onSend }: EmptyStateProps) {
       )}
 
       <h1 className="max-w-[660px] text-balance text-[27px] font-semibold leading-[1.35] tracking-tight text-text-primary md:text-[32px]">
-        {t('empty.greeting')}
+        你好，我是延边大米长势与产量分析助手
       </h1>
       <p className="mt-3 max-w-[640px] text-[15.5px] leading-[1.85] text-text-muted">
-        {t('empty.subtitle')}
+        用自然语言提问，即刻生成延边州水稻产量的趋势图表与关键指标。也可以上传 CSV，我帮你解读数据。
       </p>
 
       {/* 数据概览：三张 KPI 数字卡（数值实时计算） */}
