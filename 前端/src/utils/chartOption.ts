@@ -98,10 +98,19 @@ export function buildOption(
     extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.06); border-radius: 8px;',
   };
 
+  // 标签多时（例如八个市州名）默认会互相遮挡、被自动隐藏，
+  // 这里超过 6 个就统一旋转 30 度，保证每个名字都露出来
+  const rotateX = labels.length > 6 ? 30 : 0;
+
   const xAxis = {
     type: 'category' as const,
     data: labels,
-    axisLabel: { color: c.faint, fontSize: 12 },
+    axisLabel: {
+      color: c.faint,
+      fontSize: 12,
+      rotate: rotateX,
+      interval: 0,
+    },
     axisLine: { lineStyle: { color: c.border } },
     axisTick: { show: false },
   };
