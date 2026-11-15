@@ -25,7 +25,7 @@ const SUGGESTION_GROUPS: SuggestionGroup[] = [
     items: [
       { icon: LineChart, text: '画出 2016—2025 年产量趋势', desc: '折线图 · 趋势对比' },
       { icon: Trophy, text: '产量最高的是哪一年？', desc: '柱状图 · 极值定位' },
-      { icon: Calculator, text: '平均产量是多少吨？', desc: '关键指标 · 统计汇总' },
+      { icon: Calculator, text: '平均产量是多少？', desc: '关键指标 · 统计汇总' },
       { icon: Activity, text: '产量波动最大的年份', desc: '波动分析 · 环比变化' },
     ],
   },
@@ -59,6 +59,7 @@ export default function EmptyState({ onSend }: EmptyStateProps) {
         <img
           src="/hero.jpg"
           alt="延边稻田"
+          fetchPriority="high"
           className="mb-4 h-36 w-full max-w-[720px] rounded-2xl object-cover shadow-card [@media(max-height:900px)]:h-24"
           onError={() => setHeroOk(false)}
         />

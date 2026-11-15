@@ -11,7 +11,7 @@ const COLOR_REVENUE = '#d9a441'; // 稻田金：销售额（折线）
 /** 字段中文标签 */
 export const FIELD_LABEL: Record<Field, string> = {
   year: '年份',
-  yield: '产量（吨）',
+  yield: '产量（万吨）',
   revenue: '销售额（亿元）',
 };
 
