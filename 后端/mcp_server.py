@@ -50,6 +50,11 @@ def tool_query_statistics(field: str = "yield") -> dict[str, Any]:
     return _datasource.query_statistics(field)
 
 
+def tool_query_cities(year: int = 2025) -> dict[str, Any]:
+    """按市州查询吉林省稻谷产量（目前仅 2025 年有官方分市数据）。"""
+    return _datasource.query_cities(int(year))
+
+
 def tool_search_knowledge(query: str, top_k: int = 3) -> dict[str, Any]:
     """检索延边水稻农技知识库（栽培、施肥、病虫害、政策等）。"""
     results = _retriever.search(query, top_k=int(top_k))
@@ -95,6 +100,19 @@ TOOLS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "query_cities",
+        "description": (
+            "查询吉林省各市州的稻谷产量对比（2025 年）。适合回答「哪个市产量最高」"
+            "「各市州对比」「某地全省排第几」这类问题。白山市公报未单列稻谷，故不包含。"
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "year": {"type": "integer", "description": "年份，目前仅 2025 年有官方分市数据"}
+            },
+        },
+    },
+    {
         "name": "search_knowledge",
         "description": "检索延边水稻农技知识库，覆盖栽培、施肥、病虫害防治、补贴政策、农时与品种",
         "inputSchema": {
@@ -111,6 +129,7 @@ TOOLS: list[dict[str, Any]] = [
 HANDLERS: dict[str, Callable[..., dict[str, Any]]] = {
     "query_yield": tool_query_yield,
     "query_statistics": tool_query_statistics,
+    "query_cities": tool_query_cities,
     "search_knowledge": tool_search_knowledge,
 }
 
