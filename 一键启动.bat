@@ -45,9 +45,15 @@ if not exist "%BACKEND%\.env" (
 )
 findstr /r /c:"^LLM_API_KEY=." "%BACKEND%\.env" >nul 2>&1
 if errorlevel 1 (
-    echo [提示] 未检测到 LLM_API_KEY，将以「演示模式」运行。
-    echo        图表与结论为内置示例数据，界面上会标注「演示数据」。
-    echo        需要真实 AI 回答时，编辑 后端\.env 填入密钥后重新双击。
+    echo ================================================
+    echo   注意：当前是「演示模式」
+    echo ================================================
+    echo.
+    echo   没有检测到 LLM_API_KEY。界面、图表、交互全部可用，
+    echo   但回答使用的是内置示例数据，页面上会标注「演示数据」。
+    echo   这不是系统故障，是有意的降级设计。
+    echo   要看到真实的 AI 回答：把 LLM_API_KEY 填进 后端 的 .env 文件，
+    echo   然后关掉服务重新双击本脚本。
     echo.
 )
 
