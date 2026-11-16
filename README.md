@@ -206,6 +206,7 @@ flowchart LR
 | 组别 | C 组（高职高专院校） |
 | 成员 | 李梓帅、刘桐、静禹臣 |
 | 指导教师 | 宋峻宇 |
+| GitHub | [fsfs32](https://github.com/fsfs32)（提交记录显示名 TL） |
 
 ## 十三、许可与声明
 
