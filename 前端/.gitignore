@@ -16,7 +16,5 @@ venv/
 Thumbs.db
 *.local
 
-# IDE / 工具内部目录
-.workbuddy/
-.trae/
+# IDE
 .vscode/

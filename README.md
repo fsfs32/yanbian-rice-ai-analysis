@@ -31,6 +31,16 @@
 | 文件分析 | 上传 CSV（≤5MB） | 本地数据画像 + 图表/表格；有密钥时交由 AI 解读 |
 | 交互 | 图表点选、推荐追问、语音提问、导出 PNG/CSV | 追问式分析闭环 |
 
+### 界面预览
+
+| 首页：示例问题与数据概览 | 数据问答：结论 + KPI + 图表 |
+|---|---|
+| ![首页](docs/screenshots/home.png) | ![数据问答](docs/screenshots/chat-trend.png) |
+
+| 知识问答：知识库原文 + 来源标注 | 移动端（390px） |
+|---|---|
+| ![知识问答](docs/screenshots/knowledge.png) | ![移动端](docs/screenshots/mobile.png) |
+
 ## 三、快速开始
 
 **方式一：双击 `一键启动.bat`**（推荐给评审）
@@ -128,7 +138,10 @@ flowchart LR
 │   ├── mcp_server.py             # MCP Server（stdio）
 │   ├── tests/                    # 48 项单元测试
 │   └── tools/                    # rag_eval（检索评测）、stream_check（流式实测）
-├── 延边大米-AI数据分析平台-技术文档.pdf
+├── docs/
+│   ├── 延边大米-AI数据分析平台-技术文档.pdf
+│   ├── 延边大米-AI数据分析平台-技术文档.docx
+│   └── screenshots/              # README 引用的界面截图
 └── README.md
 ```
 
