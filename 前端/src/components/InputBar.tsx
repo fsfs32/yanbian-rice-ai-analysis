@@ -13,6 +13,9 @@ interface InputBarProps {
   onIngest: (input: { fileName: string; headers: string[]; rows: string[][] }) => void;
 }
 
+/** 与后端 AskRequest.question 的 max_length 保持一致，避免提交后才被 422 打回 */
+const MAX_QUESTION_LENGTH = 500;
+
 export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputBarProps) {
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -56,6 +59,7 @@ export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputB
       <textarea
         rows={1}
         value={value}
+        maxLength={MAX_QUESTION_LENGTH}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={handleKeyDown}
         aria-label="输入关于延边水稻的问题"
@@ -110,6 +114,9 @@ export default function InputBar({ isLoading, onSend, onStop, onIngest }: InputB
           </div>
         )}
       </div>
+      {value.length >= MAX_QUESTION_LENGTH && (
+        <p className="px-4 pb-2 text-[12px] text-text-faint">已达 {MAX_QUESTION_LENGTH} 字上限</p>
+      )}
       {error && (
         <p className="px-4 pb-2 text-[12.5px] text-danger" role="alert">
           {error}

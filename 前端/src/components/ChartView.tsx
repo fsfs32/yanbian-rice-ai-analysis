@@ -17,8 +17,10 @@ interface ChartViewProps {
   labels: (string | number)[];
   values: number[];
   chartType: ChartType;
-  /** 组合图第二序列（销售额），与 values 等长 */
+  /** 组合图第二序列（产值），与 values 等长 */
   values2?: number[];
+  /** 单序列图的 Y 轴含义（如「产值（亿元）」），用作系列名与 tooltip */
+  yLabel?: string;
   /** 导出图片时用作文件名的标题 */
   title: string;
   /** 导出图片时写入水印的数据来源 */
@@ -34,14 +36,14 @@ export interface ChartViewHandle {
 
 const ChartView = memo(
   forwardRef<ChartViewHandle, ChartViewProps>(function ChartView(
-    { labels, values, chartType, values2, title, source, onPointClick },
+    { labels, values, chartType, values2, yLabel, title, source, onPointClick },
     ref,
   ) {
     const chartRef = useRef<ComponentRef<typeof ReactEChartsCore> | null>(null);
 
     const option = useMemo(
-      () => buildOption(labels, values, chartType, values2),
-      [labels, values, chartType, values2],
+      () => buildOption(labels, values, chartType, values2, yLabel),
+      [labels, values, chartType, values2, yLabel],
     );
 
     // 把 ECharts 画布能力暴露给卡片上的导出按钮

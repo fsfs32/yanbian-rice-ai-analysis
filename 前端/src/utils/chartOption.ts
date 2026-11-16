@@ -6,17 +6,17 @@ import { buildThemeColors } from './chartTheme';
 
 /** 农业主题双序列配色（ECharts 配置允许字面量色值） */
 const COLOR_YIELD = '#5b8c3e'; // 禾苗绿：产量（柱）
-const COLOR_REVENUE = '#d9a441'; // 稻田金：销售额（折线）
+const COLOR_REVENUE = '#d9a441'; // 稻田金：产值估算（折线）
 
 /** 字段中文标签 */
 export const FIELD_LABEL: Record<Field, string> = {
   year: '年份',
   yield: '产量（万吨）',
-  revenue: '销售额（亿元）',
+  revenue: '产值（亿元）',
   city: '市州',
 };
 
-/** 组合图：左轴产量（柱）+ 右轴销售额（折线） */
+/** 组合图：左轴产量（柱）+ 右轴产值估算（折线） */
 function buildComboOption(
   values: number[],
   values2: number[],
@@ -84,6 +84,8 @@ export function buildOption(
   values: number[],
   chartType: ChartType,
   values2?: number[],
+  /** Y 轴字段的中文标签，作为系列名；不传时用通用「数值」 */
+  yLabel = '数值',
 ): EChartsOption {
   const c = buildThemeColors();
   const isCombo = chartType === 'combo' && Array.isArray(values2) && values2.length === values.length;
@@ -99,8 +101,10 @@ export function buildOption(
   };
 
   // 标签多时（例如八个市州名）默认会互相遮挡、被自动隐藏，
-  // 这里超过 6 个就统一旋转 30 度，保证每个名字都露出来
-  const rotateX = labels.length > 6 ? 30 : 0;
+  // 这里超过 6 个就统一旋转 30 度，保证每个名字都露出来；
+  // 数据点极多（上传的大 CSV）时不能强开 interval:0，否则几百个标签糊成一条灰带
+  const denseLabels = labels.length > 24;
+  const rotateX = !denseLabels && labels.length > 6 ? 30 : 0;
 
   const xAxis = {
     type: 'category' as const,
@@ -109,7 +113,7 @@ export function buildOption(
       color: c.faint,
       fontSize: 12,
       rotate: rotateX,
-      interval: 0,
+      interval: denseLabels ? ('auto' as const) : 0,
     },
     axisLine: { lineStyle: { color: c.border } },
     axisTick: { show: false },
@@ -133,7 +137,8 @@ export function buildOption(
     },
     series: [
       {
-        name: '产量',
+        // 系列名跟随 Y 轴字段：产值图不能再显示「产量」
+        name: yLabel,
         type: isBar ? 'bar' : 'line',
         data: values,
         smooth: !isBar,

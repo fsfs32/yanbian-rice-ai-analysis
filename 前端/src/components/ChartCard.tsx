@@ -122,6 +122,7 @@ export default function ChartCard({ data, onPointClick }: ChartCardProps) {
             values={values}
             chartType={chartType}
             values2={values2}
+            yLabel={FIELD_LABEL[config.y_field]}
             title={config.title}
             source={source}
             onPointClick={onPointClick}

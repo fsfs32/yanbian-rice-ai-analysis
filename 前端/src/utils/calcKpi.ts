@@ -33,7 +33,7 @@ export function formatNumber(value: number): string {
   return Math.round(value).toLocaleString('zh-CN');
 }
 
-/** 万吨数值格式化，保留一位小数 */
-export function formatWan(wanTons: number): string {
-  return `${wanTons.toFixed(1)} 万吨`;
+/** 数值格式化：默认按万吨（产量口径），产值等其它口径可传入单位 */
+export function formatWan(wanTons: number, unit = '万吨'): string {
+  return `${wanTons.toFixed(1)} ${unit}`;
 }

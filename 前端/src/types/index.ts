@@ -1,9 +1,9 @@
-// 全局共享类型定义：所有 API 请求/响应、组件 Props、Hook 返回值统一在此声明
+﻿// 全局共享类型定义：所有 API 请求/响应、组件 Props、Hook 返回值统一在此声明
 
 /** 图表类型白名单：折线图 / 柱状图 / 散点图 / 组合图（柱+折线双轴） */
 export type ChartType = 'line' | 'bar' | 'scatter' | 'combo';
 
-/** 图表坐标轴字段白名单：年份 / 产量 / 销售额 */
+/** 图表坐标轴字段白名单：年份 / 产量 / 产值 / 市州 */
 export type Field = 'year' | 'yield' | 'revenue' | 'city';
 
 /** 后端返回的图表配置 */
@@ -11,7 +11,7 @@ export interface ChartConfig {
   chart_type: ChartType;
   x_field: Field;
   y_field: Field;
-  /** 组合图第二序列字段（如销售额），仅在 chart_type=combo 时存在 */
+  /** 组合图第二序列字段（如产值估算），仅在 chart_type=combo 时存在 */
   y2_field?: Field;
   title: string;
 }
@@ -23,7 +23,7 @@ export interface AskResponse {
   chart_config: ChartConfig;
   labels: (string | number)[];
   values: number[];
-  /** 组合图第二序列（如销售额），与 values 等长 */
+  /** 组合图第二序列（如产值估算），与 values 等长 */
   values2?: number[];
   summary: string;
   source?: string;

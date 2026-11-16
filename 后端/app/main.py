@@ -60,9 +60,14 @@ app.include_router(ask.router)
 
 
 @app.get("/health", tags=["system"])
-async def health() -> dict[str, str]:
+async def health() -> dict[str, str | bool]:
     """健康检查，供部署探针与联调自检使用。
 
-    顺带暴露当前使用的模型名，前端顶栏据此显示运行状态角标。
+    顺带暴露当前使用的模型名与是否处于演示模式：前端顶栏据此显示运行状态角标，
+    避免「没配密钥却显示模型名」造成误解。
     """
-    return {"status": "ok", "model": settings.llm_model}
+    return {
+        "status": "ok",
+        "model": settings.llm_model,
+        "demo": not bool(settings.llm_api_key.strip()),
+    }

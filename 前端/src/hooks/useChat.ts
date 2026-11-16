@@ -6,12 +6,14 @@ import type { AgentStep, AskResponse, ChatMessage, ChatStatus, ChatTurn, ChartDa
 import { streamQuestion } from '../api/askApi';
 import { normalizeError } from '../utils/normalizeError';
 import { validateAskResponse } from '../utils/validateAskResponse';
-import { analyzeCsv, summarizeSeries } from '../utils/csvInsight';
+import { analyzeCsv, sampleSeries, summarizeSeries } from '../utils/csvInsight';
 import { getMockResponse } from '../utils/mockData';
 import { loadHistory, pushHistory } from '../utils/history';
 
 const TYPE_CHAR_DELAY_MS = 16;
 const HISTORY_WINDOW = 6;
+// 上传 CSV 时随请求发给后端的最大行数（提示词侧另有 200 行上限）
+const MAX_AI_ROWS = 2000;
 
 const genId = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -400,6 +402,10 @@ export function useChat(): UseChatResult {
       // 本地画像：作为后端不可用 / 未返回有效图表时的兜底
       const insight = analyzeCsv(input.headers, input.rows);
       const stats = insight.series ? summarizeSeries(insight.series.values) : null;
+      // 大文件只保留抽稀后的序列用于展示与作图，避免上千个点把图表拖死
+      const series = insight.series
+        ? sampleSeries(insight.series.labels, insight.series.values)
+        : null;
 
       // 右侧「数据速览」切到本次上传的数据集；再次上传会整体替换
       setDataset({
@@ -407,22 +413,22 @@ export function useChat(): UseChatResult {
         rowCount: input.rows.length,
         columnCount: input.headers.length,
         metricLabel: insight.series?.valueLabel ?? '',
-        labels: insight.series?.labels ?? [],
-        values: insight.series?.values ?? [],
-        plottable: Boolean(insight.series),
+        labels: series?.labels ?? [],
+        values: series?.values ?? [],
+        plottable: Boolean(series),
       });
 
       let fallbackContent: string;
       let fallbackChart: ChartData | undefined;
 
-      if (insight.plottable && insight.series && stats) {
+      if (insight.plottable && insight.series && series && stats) {
         fallbackContent =
           `已解析「${input.fileName}」：共 ${input.rows.length} 行、${input.headers.length} 列，` +
           `识别到 ${insight.numericColumnCount} 个数值列。` +
           `其中「${insight.series.valueLabel}」的峰值为 ${stats.max.toLocaleString('zh-CN')}，` +
           `均值约为 ${Math.round(stats.avg).toLocaleString('zh-CN')}。`;
         // 数据点较多时柱状图会因柱子过细（边框/圆角覆盖）而空白，改用折线图保证可读
-        const pointCount = insight.series.values.length;
+        const pointCount = series.values.length;
         fallbackChart = {
           config: {
             chart_type: pointCount > 30 ? 'line' : 'bar',
@@ -430,8 +436,8 @@ export function useChat(): UseChatResult {
             y_field: 'yield',
             title: `${insight.series.valueLabel} · 数据预览`,
           },
-          labels: insight.series.labels,
-          values: insight.series.values,
+          labels: series.labels,
+          values: series.values,
           source: input.fileName,
         };
       } else {
@@ -439,10 +445,12 @@ export function useChat(): UseChatResult {
       }
 
       const table: CsvPreview = { headers: input.headers, rows: input.rows };
+      // 交给大模型的数据只取前若干行：提示词侧本就有 200 行上限，
+      // 没必要把整个大文件序列化进请求体（几 MB 的 JSON 会明显拖慢首字延迟）
       const csv: CsvAttachment = {
         file_name: input.fileName,
         headers: input.headers,
-        rows: input.rows,
+        rows: input.rows.slice(0, MAX_AI_ROWS),
       };
 
       const runId = ++runIdRef.current;

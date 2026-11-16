@@ -2,7 +2,8 @@
 // 这几块是「数据算错」与「结构与后端不一致」的高发地带，用测试锁住
 import { describe, expect, it } from 'vitest';
 import { calcKpi, formatNumber, formatWan } from '../calcKpi';
-import { FIELD_LABEL } from '../chartOption';
+import { buildOption, FIELD_LABEL } from '../chartOption';
+import { sampleSeries } from '../csvInsight';
 import { getMockResponse } from '../mockData';
 import { validateAskResponse } from '../validateAskResponse';
 
@@ -41,7 +42,9 @@ describe('单位显示', () => {
   });
 
   it('产值单位是亿元', () => {
-    expect(FIELD_LABEL.revenue).toBe('销售额（亿元）');
+    expect(FIELD_LABEL.revenue).toBe('产值（亿元）');
+    // 项目口径是「产量 × 均价」的产值估算，界面不能写成官方销售额
+    expect(FIELD_LABEL.revenue).not.toContain('销售额');
   });
 
   it('万吨格式化保留一位小数', () => {
@@ -91,6 +94,23 @@ describe('validateAskResponse 结构校验', () => {
   it('非对象输入判定失败', () => {
     expect(validateAskResponse(null).ok).toBe(false);
     expect(validateAskResponse('字符串').ok).toBe(false);
+  });
+});
+
+describe('图表系列与数据抽稀', () => {
+  it('单序列图的系列名跟随 Y 轴字段，产值图不会显示成产量', () => {
+    const option = buildOption([2020, 2021], [4.5, 5.1], 'line', undefined, '产值（亿元）');
+    const series = option.series as Array<{ name?: string }>;
+    expect(series[0]?.name).toBe('产值（亿元）');
+  });
+
+  it('大文件抽稀到上限且保留首尾点', () => {
+    const values = Array.from({ length: 5000 }, (_, i) => i);
+    const labels = values.map((v) => String(v));
+    const sampled = sampleSeries(labels, values, 500);
+    expect(sampled.values).toHaveLength(500);
+    expect(sampled.values[0]).toBe(0);
+    expect(sampled.values[499]).toBe(4999);
   });
 });
 

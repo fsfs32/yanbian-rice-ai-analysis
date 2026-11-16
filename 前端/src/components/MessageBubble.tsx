@@ -55,6 +55,9 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
   const isCsv = Boolean(message.table);
   // 市州对比图的 X 轴是地名，「最高年份」这类标签会读起来别扭
   const isCity = message.chart?.config.x_field === 'city';
+  // KPI 的单位与文案跟随 Y 轴字段：产值图的数字是「亿元」，不能沿用「万吨」
+  const isRevenue = message.chart?.config.y_field === 'revenue';
+  const kpiUnit = isRevenue ? '亿元' : '万吨';
   const kpi = message.chart ? calcKpi(message.chart.labels, message.chart.values) : null;
 
   return (
@@ -97,9 +100,18 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
               </>
             ) : (
               <>
-                <KpiCard label="总产量" labelEn="Total" value={formatNumber(kpi.total)} unit="万吨" />
+                <KpiCard
+                  label={isRevenue ? '产值合计' : '总产量'}
+                  labelEn="Total"
+                  value={formatNumber(kpi.total)}
+                  unit={kpiUnit}
+                />
                 <KpiCard label={isCity ? '产量最高' : '最高年份'} labelEn="Peak" value={String(kpi.maxYear)} />
-                <KpiCard label={isCity ? '平均产量' : '年均产量'} labelEn="Avg." value={formatWan(kpi.avg)} />
+                <KpiCard
+                  label={isRevenue ? '年均产值' : '年均产量'}
+                  labelEn="Avg."
+                  value={formatWan(kpi.avg, kpiUnit)}
+                />
               </>
             )}
           </div>

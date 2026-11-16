@@ -89,6 +89,27 @@ function extractSeries(headers: string[], rows: string[][]): CsvSeries | null {
   };
 }
 
+/** 图表最多点数：CSV 可能上万行，全量画线会让浏览器卡住 */
+export const MAX_CHART_POINTS = 500;
+
+/** 等距抽稀：保留首尾点与整体趋势形状，供大文件渲染用 */
+export function sampleSeries(
+  labels: (string | number)[],
+  values: number[],
+  maxPoints = MAX_CHART_POINTS,
+): { labels: (string | number)[]; values: number[] } {
+  if (values.length <= maxPoints) return { labels, values };
+  const step = (values.length - 1) / (maxPoints - 1);
+  const outLabels: (string | number)[] = [];
+  const outValues: number[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    const index = Math.min(values.length - 1, Math.round(i * step));
+    outLabels.push(labels[index]);
+    outValues.push(values[index]);
+  }
+  return { labels: outLabels, values: outValues };
+}
+
 export function analyzeCsv(headers: string[], rows: string[][]): CsvInsight {
   const numeric = numericColumns(headers, rows);
   const series = extractSeries(headers, rows);

@@ -59,7 +59,6 @@ export default function EmptyState({ onSend }: EmptyStateProps) {
         <img
           src="/hero.jpg"
           alt="延边稻田"
-          fetchPriority="high"
           className="mb-4 h-36 w-full max-w-[720px] rounded-2xl object-cover shadow-card [@media(max-height:900px)]:h-24"
           onError={() => setHeroOk(false)}
         />

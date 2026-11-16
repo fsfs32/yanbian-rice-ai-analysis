@@ -9,7 +9,7 @@ const DEGRADABLE_HINT = /未配置|LLM_API_KEY|not configured|no api key|401|inv
 
 /** HTTP 状态错误（非 2xx） */
 export class HttpError extends Error {
-  readonly userMessage = '服务器返回了异常状态，请稍后重试';
+  readonly userMessage: string;
   readonly retryable = false;
   /**
    * 是否可用本地演示数据兜底。
@@ -25,6 +25,15 @@ export class HttpError extends Error {
     super(`HTTP ${status}`);
     this.name = 'HttpError';
     this.degradable = typeof detail === 'string' && DEGRADABLE_HINT.test(detail);
+    // 按状态码给出可操作的提示，避免所有异常都只回一句「请稍后重试」
+    this.userMessage =
+      status === 422
+        ? '提交的内容不合规（问题最多 500 字），请修改后再发送'
+        : status === 429
+          ? '提问太频繁，请稍后再试'
+          : status >= 500
+            ? '服务暂时不可用，请稍后重试'
+            : '服务器返回了异常状态，请稍后重试';
   }
 }
 

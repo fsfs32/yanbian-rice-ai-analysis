@@ -1,9 +1,9 @@
 // 顶栏（展示组件）：极简问答产品导航，品牌标识（支持图片位）+ 运行状态角标 + 新对话按钮
-// 图片位：public/logo.png（建议 96×96 透明底、黑白色麦穗图），未放置时回退为黑白色麦穗 SVG 标识
-// 状态角标：显示当前模型与上次响应耗时，让「真调了大模型」这件事看得见
+// 图片位：public/logo.png（96×96 透明底），缺失时回退为黑白色麦穗 SVG 标识
+// 状态角标：显示当前模型与上次响应耗时；未配置密钥时显示「演示模式」，不误导为真调模型
 import { useEffect, useState } from 'react';
 import { Plus, Wheat } from 'lucide-react';
-import { fetchModelName } from '../api/health';
+import { fetchServiceInfo } from '../api/health';
 
 interface TopBarProps {
   onNewChat: () => void;
@@ -15,12 +15,15 @@ interface TopBarProps {
 
 export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
   const [logoOk, setLogoOk] = useState(true);
-  const [model, setModel] = useState<string | null>(null);
+  const [service, setService] = useState<{ model: string | null; demo: boolean }>({
+    model: null,
+    demo: false,
+  });
 
   useEffect(() => {
     let alive = true;
-    void fetchModelName().then((name) => {
-      if (alive) setModel(name);
+    void fetchServiceInfo().then((info) => {
+      if (alive) setService(info);
     });
     return () => {
       alive = false;
@@ -38,6 +41,9 @@ export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
         : `${usage.total_tokens} tokens`
       : null;
   const costText = usage?.estimated_cost_cny ? `约 ¥${usage.estimated_cost_cny.toFixed(3)}` : null;
+
+  // 演示模式下不显示模型名：没调模型却挂一个模型名，属于误导
+  const modelText = service.demo ? '演示模式' : service.model;
 
   return (
     <header className="relative z-30 flex h-16 shrink-0 items-center justify-between border-b border-border bg-canvas px-5 md:px-8">
@@ -61,19 +67,21 @@ export default function TopBar({ onNewChat, latencyMs, usage }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* 运行状态角标：模型名 + 上次响应耗时 + token 用量 */}
-        {(model || latencyText || usageText) && (
+        {/* 运行状态角标：模型名（演示模式时替换）+ 上次响应耗时 + token 用量 */}
+        {(modelText || latencyText || usageText) && (
           <span
             className="hidden items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-[11.5px] text-text-faint md:inline-flex"
             title={
-              costText
-                ? `当前模型、最近一次响应耗时与 token 用量（${costText}）`
-                : '当前模型、最近一次响应耗时与 token 用量'
+              service.demo
+                ? '未配置 LLM_API_KEY：回答由内置数据与知识库生成'
+                : costText
+                  ? `当前模型、最近一次响应耗时与 token 用量（${costText}）`
+                  : '当前模型、最近一次响应耗时与 token 用量'
             }
           >
             <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-            {model}
-            {model && (latencyText || usageText) && <span className="text-border-strong">·</span>}
+            {modelText}
+            {modelText && (latencyText || usageText) && <span className="text-border-strong">·</span>}
             {latencyText}
             {latencyText && usageText && <span className="text-border-strong">·</span>}
             {usageText}
