@@ -1,6 +1,9 @@
-// Mock 演示数据：仅在后端不可用时降级使用，界面会明确标注「演示数据」
+// Mock 演示数据：仅在后端不可用时降级使用，界面会明确标注「演示模式」
 // 数据为延边州 2016—2025 年稻谷产量（万吨）与产值估算（亿元），与后端内置数据源一致
 // 来源：延边州历年《国民经济和社会发展统计公报》（产量），产值 = 产量 × 粳稻均价约 2.6 元/公斤（估算）
+//
+// 降级原则：只回答「数据类」问题。病虫害、栽培、政策等知识问题在后端不可用时
+// 没有可信来源，宁可如实说明，也不能套一张跟问题无关的产量趋势图。
 
 import type { AskResponse } from '../types';
 
@@ -12,6 +15,22 @@ export const VALUES: number[] = [17.4, 19.7, 21.91, 24.09, 24.22, 25.22, 22.78, 
 export const REVENUE_VALUES: number[] = [4.52, 5.12, 5.7, 6.26, 6.3, 6.56, 5.92, 5.88, 5.7, 5.68];
 
 const SOURCE = '延边州历年《国民经济和社会发展统计公报》';
+
+const WEATHER = /降水|温度|气温|气象|降雨|天气|湿度|日照/;
+const GREETING = /^(你好|您好|哈喽|hello|hi|嗨|在吗|谢谢|多谢|感谢)[!！。.~～,，\s]*$/i;
+// 只有命中「数据对象词」才走本地图表；知识类问题不硬套产量数据
+const DATA_QUERY = /产量|产值|万吨|销售额|数据|统计|趋势|年份|最高|最低|最大|最小|平均|均值|波动|峰值|对比|排名|市州|全省|增长|下降|变化/;
+
+/** 纯文字回答：不出图，用于寒暄与说明当前状态 */
+function textOnly(summary: string): AskResponse {
+  return {
+    chart_config: { chart_type: 'line', x_field: 'year', y_field: 'yield', title: '' },
+    labels: [],
+    values: [],
+    summary,
+    source: '演示模式 · 本地兜底',
+  };
+}
 
 /** 构造标准响应：默认返回组合图，同时携带产量与产值两个序列 */
 function buildAnswer(
@@ -60,10 +79,12 @@ function maxDeltaYear(): { year: number; delta: number } {
 
 /**
  * 根据问题返回演示响应。
+ * 只有「产量 / 趋势 / 统计」这类数据问题才出图；其余问题返回文字说明，
+ * 避免出现「问病虫害、答产量趋势」的答非所问。
  * 边界问题（气象类）返回空 labels/values，由 useChat 识别为「边界提示卡」。
  */
 export function getMockResponse(question: string): AskResponse {
-  if (/降水|温度|气温|气象|降雨|天气|湿度|日照/.test(question)) {
+  if (WEATHER.test(question)) {
     return {
       chart_config: { chart_type: 'line', x_field: 'year', y_field: 'yield', title: '' },
       labels: [],
@@ -73,7 +94,22 @@ export function getMockResponse(question: string): AskResponse {
     };
   }
 
-  if (/平均|均值/.test(question)) {
+  if (GREETING.test(question)) {
+    return textOnly(
+      '你好！我是延边大米数据分析助手，可以回答 2016—2025 年延边州稻谷产量趋势、峰值、年均值和各市州对比这类数据问题。试试问「2016—2025 年产量趋势」。',
+    );
+  }
+
+  // 知识类问题（病虫害、栽培、政策等）没有可用的本地可信来源，如实说明而不是硬编
+  if (!DATA_QUERY.test(question)) {
+    return textOnly(
+      '后端 AI 服务当前不可用（演示模式），这个问题暂时没法回答。' +
+        '请确认后端已在 8000 端口启动；若只是没配 LLM_API_KEY，后端会自动改用内置知识库作答。' +
+        '你也可以先问「2016—2025 年产量趋势」这类内置数据问题。',
+    );
+  }
+
+  if (/平均|均值|年均/.test(question)) {
     const avg = VALUES.reduce((a, b) => a + b, 0) / VALUES.length;
     return buildAnswer(
       '2016—2025 年延边水稻产量',

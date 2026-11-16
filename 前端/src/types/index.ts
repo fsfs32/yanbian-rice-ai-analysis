@@ -27,6 +27,8 @@ export interface AskResponse {
   values2?: number[];
   summary: string;
   source?: string;
+  /** 是否为演示模式回答（未配置 LLM_API_KEY 时由后端内置数据/知识库生成） */
+  demo?: boolean;
 }
 
 /** 通过运行时校验、可直接用于渲染的图表数据 */
@@ -98,6 +100,8 @@ export interface ChatMessage {
   steps?: AgentStep[];
   /** 推荐追问（最多 3 条），点击即可继续提问 */
   followups?: string[];
+  /** 数据来源（纯文字回答没有图表，来源单独挂在消息上） */
+  source?: string;
   isDemo?: boolean;
   pending?: boolean;
 }

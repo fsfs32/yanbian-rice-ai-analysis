@@ -53,6 +53,8 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
   }
 
   const isCsv = Boolean(message.table);
+  // 市州对比图的 X 轴是地名，「最高年份」这类标签会读起来别扭
+  const isCity = message.chart?.config.x_field === 'city';
   const kpi = message.chart ? calcKpi(message.chart.labels, message.chart.values) : null;
 
   return (
@@ -96,8 +98,8 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
             ) : (
               <>
                 <KpiCard label="总产量" labelEn="Total" value={formatNumber(kpi.total)} unit="万吨" />
-                <KpiCard label="最高年份" labelEn="Peak" value={String(kpi.maxYear)} />
-                <KpiCard label="年均产量" labelEn="Avg." value={formatWan(kpi.avg)} />
+                <KpiCard label={isCity ? '产量最高' : '最高年份'} labelEn="Peak" value={String(kpi.maxYear)} />
+                <KpiCard label={isCity ? '平均产量' : '年均产量'} labelEn="Avg." value={formatWan(kpi.avg)} />
               </>
             )}
           </div>
@@ -132,14 +134,16 @@ const MessageBubble = memo(function MessageBubble({ message, onFollowup }: Messa
           </div>
         )}
 
-        {/* 数据来源与演示标注 */}
+        {/* 数据来源与演示标注（纯文字回答的来源挂在消息上，图表回答挂在 chart 上） */}
         <div className="mt-2.5 flex items-center gap-2">
-          {message.chart?.source && (
-            <p className="text-[12px] text-text-faint">数据来源 · {message.chart.source}</p>
+          {(message.chart?.source || message.source) && (
+            <p className="text-[12px] text-text-faint">
+              数据来源 · {message.chart?.source || message.source}
+            </p>
           )}
           {message.isDemo && (
             <span className="rounded bg-accent-soft px-1.5 py-0.5 text-[11px] text-accent">
-              演示数据
+              演示模式
             </span>
           )}
           {message.content && (

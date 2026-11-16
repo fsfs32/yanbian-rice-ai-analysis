@@ -36,7 +36,7 @@ type Action =
   | { type: 'RESULT'; id: string; chart: ChartData; isDemo: boolean; table?: CsvPreview; followups?: string[]; summary?: string }
   | { type: 'INGEST_START'; id: string }
   | { type: 'INGEST_RESULT'; id: string; content: string; chart?: ChartData; table?: CsvPreview }
-  | { type: 'TEXT_RESULT'; id: string; content: string; followups?: string[] }
+  | { type: 'TEXT_RESULT'; id: string; content: string; followups?: string[]; isDemo?: boolean; source?: string }
   | { type: 'TRUNCATE_TO_LAST_USER' }
   | { type: 'UPDATE_CONTENT'; id: string; content: string }
   | { type: 'ERROR'; id: string; message: string }
@@ -156,6 +156,8 @@ function reducer(state: ChatState, action: Action): ChatState {
                 kind: 'normal',
                 content: action.content,
                 followups: action.followups,
+                isDemo: action.isDemo,
+                source: action.source,
                 pending: false,
               }
             : m,
@@ -206,7 +208,8 @@ async function requestWithRetry(
     if (isStopped()) return { kind: 'aborted' };
     try {
       const data = await streamQuestion(question, onDelta, signal, context, undefined, onStep);
-      return { kind: 'ok', data, isDemo: false };
+      // 后端演示模式（未配置密钥）会带 demo=true，界面据此标注「演示模式」
+      return { kind: 'ok', data, isDemo: Boolean((data as { demo?: boolean }).demo) };
     } catch (error) {
       if (isStopped()) return { kind: 'aborted' };
       const normalized = normalizeError(error);
@@ -350,6 +353,8 @@ export function useChat(): UseChatResult {
           id: aiMsgId,
           content: validation.summary,
           followups: validation.followups,
+          isDemo: outcome.isDemo,
+          source: validation.chart.source,
         });
         return;
       }

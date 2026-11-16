@@ -143,6 +143,11 @@ class AskResponse(BaseModel):
         description="本次问答的模型 token 用量，用于成本观测",
     )
 
+    demo: bool = PydanticField(
+        default=False,
+        description="是否为演示模式回答（未配置 LLM_API_KEY 时由内置数据/知识库生成）",
+    )
+
     @model_validator(mode="after")
     def _normalize_followups(self) -> "AskResponse":
         """清洗追问：去空、去重、限长、最多 3 条。

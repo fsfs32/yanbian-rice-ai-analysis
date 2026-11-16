@@ -3,6 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { calcKpi, formatNumber, formatWan } from '../calcKpi';
 import { FIELD_LABEL } from '../chartOption';
+import { getMockResponse } from '../mockData';
 import { validateAskResponse } from '../validateAskResponse';
 
 describe('calcKpi 指标计算', () => {
@@ -90,5 +91,27 @@ describe('validateAskResponse 结构校验', () => {
   it('非对象输入判定失败', () => {
     expect(validateAskResponse(null).ok).toBe(false);
     expect(validateAskResponse('字符串').ok).toBe(false);
+  });
+});
+
+describe('演示兜底不与问题打架', () => {
+  it('知识类问题不硬套产量趋势图', () => {
+    const res = getMockResponse('稻瘟病怎么防治?');
+    expect(res.labels).toHaveLength(0);
+    expect(res.values).toHaveLength(0);
+    expect(res.summary).toContain('演示模式');
+    expect(res.summary).not.toContain('倒 U');
+  });
+
+  it('数据类问题仍按内置数据出图', () => {
+    const res = getMockResponse('2016 到 2025 年产量趋势');
+    expect(res.labels).toHaveLength(10);
+    expect(res.values).toHaveLength(10);
+    expect(res.summary).toContain('倒 U');
+  });
+
+  it('寒暄不进产量图', () => {
+    const res = getMockResponse('你好');
+    expect(res.labels).toHaveLength(0);
   });
 });

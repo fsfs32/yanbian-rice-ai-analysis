@@ -16,7 +16,7 @@
 - [ ] title/summary 纯文本渲染并截断（title 80 / summary 800）
 - [ ] 禁止 `dangerouslySetInnerHTML` 渲染 AI 返回内容
 - [ ] 错误不向用户暴露堆栈 / 原始响应 / Key
-- [ ] Mock 降级时界面明确标注「演示数据」
+- [ ] Mock 降级时界面明确标注「演示模式」，且降级回答不与问题冲突
 
 ## 错误边界与兜底
 

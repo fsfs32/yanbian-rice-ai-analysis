@@ -14,10 +14,12 @@ from typing import AsyncIterator
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from ...core.config import settings
 from ...core.exceptions import AppError
 from ...schemas import AskRequest
 from ...services.agent import AnalysisAgent
 from ...services.data_source import InMemoryRiceDataSource
+from ...services.demo import DemoAnswerer
 from ...services.llm import LlmClient
 from ...services.rag import KNOWLEDGE_DOCUMENTS, RagRetriever
 from ...tools import build_tool_registry
@@ -29,7 +31,10 @@ _data_source = InMemoryRiceDataSource()
 _retriever = RagRetriever(KNOWLEDGE_DOCUMENTS)
 _tools = build_tool_registry(_data_source, _retriever)
 _llm = LlmClient()
-_agent = AnalysisAgent(_llm, _tools)
+# 没配密钥就直接走演示模式：用内置数据与知识库按问题类型作答，
+# 而不是让请求失败后由前端兜一张固定的产量趋势图。
+_demo = None if settings.llm_api_key.strip() else DemoAnswerer(_data_source, _retriever)
+_agent = AnalysisAgent(_llm, _tools, demo=_demo)
 
 
 @router.post("/ask", response_model=None)

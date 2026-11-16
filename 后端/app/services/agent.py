@@ -21,8 +21,12 @@ from typing import Any, AsyncIterator
 from ..core.exceptions import ToolExecutionError
 from ..schemas import AgentStep, AskRequest, AskResponse, StepPhase
 from ..tools import ToolRegistry
+from .demo import DemoAnswerer
 from .llm import LlmClient
 from .stream_extract import SummaryExtractor
+
+# 演示模式下把结论切成小块下发，前端仍能边收边渲染
+_DEMO_CHUNK_SIZE = 24
 
 # ---------------------------------------------------------------------------
 # System Prompt
@@ -106,11 +110,23 @@ class AnalysisAgent:
     # 单次问答最多允许几轮工具调用（防止模型无限查询）
     MAX_TOOL_ROUNDS = 3
 
-    def __init__(self, llm: LlmClient, tools: ToolRegistry) -> None:
+    def __init__(
+        self,
+        llm: LlmClient,
+        tools: ToolRegistry,
+        demo: DemoAnswerer | None = None,
+    ) -> None:
         self._llm = llm
         self._tools = tools
+        # 注入后即表示运行在演示模式（未配置 LLM_API_KEY），全程不调用大模型。
+        # 用「显式注入」而不是在 Agent 里读全局配置，测试无需改环境变量也能覆盖两种形态。
+        self._demo = demo
 
     async def analyze(self, request: AskRequest) -> AnalysisResult:
+        if self._demo is not None and request.csv is None:
+            demo_answer = self._demo.answer(request)
+            return AnalysisResult(response=demo_answer.response, steps=demo_answer.steps)
+
         steps: list[AgentStep] = []
         messages = self._build_messages(request)
         steps.append(
@@ -197,6 +213,22 @@ class AnalysisAgent:
         - ``{"type": "delta", "text": ...}``        正文增量（真实逐段生成）
         - ``{"type": "result", "response": AskResponse, "steps": [...]}`` 最终结构化结果
         """
+        if self._demo is not None and request.csv is None:
+            demo_answer = self._demo.answer(request)
+            for step in demo_answer.steps:
+                yield {"type": "step", "step": step}
+            summary = demo_answer.response.summary
+            for start in range(0, len(summary), _DEMO_CHUNK_SIZE):
+                yield {"type": "delta", "text": summary[start : start + _DEMO_CHUNK_SIZE]}
+            yield {
+                "type": "result",
+                "response": demo_answer.response,
+                "steps": demo_answer.steps,
+                # 演示模式没有模型调用，用量恒为 0，前端据此不显示成本
+                "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "calls": 0},
+            }
+            return
+
         messages = self._build_messages(request)
         steps: list[AgentStep] = []
 
