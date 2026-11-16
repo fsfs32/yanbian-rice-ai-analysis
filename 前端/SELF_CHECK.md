@@ -55,7 +55,7 @@
 - [ ] `npm run build`、`npm run typecheck`、`npm run lint`、`npm test` 全部通过
 - [ ] 后端 `pytest` 48 项通过
 - [ ] `.env` 未被提交（在 `.gitignore` 中）
-- [ ] README 的团队信息已替换为真实姓名（当前为「待填」）
+- [x] README 的团队信息已填写（李梓帅、刘桐、静禹臣；指导教师 宋峻宇）
 - [ ] README 含环境变量、依赖清单、运行方式、第三方许可证与 AI 工具使用说明
 - [ ] 1440 / 1280 / 768 / 390 四个宽度无布局崩坏
 - [ ] 仓库已设为 Public 或已为评委开通访问权限
