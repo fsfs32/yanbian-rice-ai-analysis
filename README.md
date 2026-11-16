@@ -140,7 +140,6 @@ flowchart LR
 │   └── tools/                    # rag_eval（检索评测）、stream_check（流式实测）
 ├── docs/
 │   ├── 延边大米-AI数据分析平台-技术文档.pdf
-│   ├── 延边大米-AI数据分析平台-技术文档.docx
 │   └── screenshots/              # README 引用的界面截图
 └── README.md
 ```
